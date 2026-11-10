@@ -14,6 +14,8 @@ use crate::widgets;
 pub(crate) const SIDEBAR_W: f32 = 224.0;
 /// Room round the sidebar's contents.
 const PAD: f32 = 12.0;
+/// Room macOS's traffic lights take at the left of the title bar's row.
+const TRAFFIC_LIGHTS_W: f32 = 76.0;
 /// A page entry's height.
 const ITEM_H: f32 = 36.0;
 /// The social logos at the foot, a little smaller than the old footer's so all eight fit.
@@ -83,23 +85,25 @@ impl LauncherUi {
         }
     }
 
-    /// Draws the sidebar. On macOS the traffic lights sit over its top-left corner, so the logo
-    /// moves down below them.
+    /// Draws the sidebar. Its top strip is the title bar's row: the logo sits centred on the
+    /// same line as the title, and on macOS just right of the traffic lights, which sit over the
+    /// sidebar's top-left corner.
     pub(crate) fn sidebar(&mut self, ui: &mut Ui, bar: TitleBar) {
         let t = Tokens::get(ui.ctx());
         let full = ui.max_rect();
         // The top: a title-bar strip (draggable with a custom or macOS title bar) with the logo.
-        let top_h = crate::views::HEADER_H + if bar == TitleBar::MacOs { 28.0 } else { 0.0 };
-        let top = Rect::from_min_size(full.min, vec2(full.width(), top_h));
+        let top = Rect::from_min_size(full.min, vec2(full.width(), crate::views::HEADER_H));
         if bar != TitleBar::Native {
             ui.scope_builder(UiBuilder::new().max_rect(top), widgets::title_bar_drag);
         }
-        let logo_h = 14.0;
+        // A touch smaller beside the traffic lights, so it stays clear of the content panel.
+        let logo_h = if bar == TitleBar::MacOs { 12.0 } else { 14.0 };
         let logo = vec2(logo_h * crate::icons::ARTCRAFT_LOGO_ASPECT, logo_h);
-        let logo_rect = Rect::from_min_size(pos2(top.left() + PAD + 10.0, top.bottom() - crate::views::HEADER_H / 2.0 - logo_h / 2.0), logo);
+        let left = if bar == TitleBar::MacOs { TRAFFIC_LIGHTS_W } else { PAD + 10.0 };
+        let logo_rect = Rect::from_min_size(pos2(top.left() + left, top.center().y - logo_h / 2.0), logo);
         egui::Image::new(crate::icons::artcraft_logo(t.dark)).alt_text(tl!("ArtCraft")).paint_at(ui, logo_rect);
 
-        let body = Rect::from_min_max(pos2(full.left() + PAD, top.bottom() + 12.0), pos2(full.right() - PAD, full.bottom() - PAD));
+        let body = Rect::from_min_max(pos2(full.left() + PAD, top.bottom() + 4.0), pos2(full.right() - PAD, full.bottom() - PAD));
         ui.scope_builder(UiBuilder::new().max_rect(body), |ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
             for page in self.pages() {
