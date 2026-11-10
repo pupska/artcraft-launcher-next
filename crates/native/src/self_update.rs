@@ -20,8 +20,20 @@ pub fn current_version() -> Option<Version> {
     craft_update::self_update::current_version(&craft_update::suite::LAUNCHER, env!("CARGO_PKG_VERSION"))
 }
 
-/// How this copy is installed, if it's one the launcher knows how to replace.
+/// Whether this build replaces itself when a newer launcher is out. Off in this fork: its
+/// releases are unsigned, and `craft_update` installs only an update from
+/// `storytold/craft-launcher` that is signed like the running copy (Windows) or by ArtCraft's
+/// Apple team (macOS). Turned on, an ad-hoc signed fork build would accept upstream's signed DMG
+/// and replace itself with upstream's launcher. Instead the UI offers the new release's download
+/// for this platform ("Download" in the update banner).
+pub const UPDATES_IN_PLACE: bool = false;
+
+/// How this copy is installed, if it's one the launcher knows how to replace; always `None`
+/// while [`UPDATES_IN_PLACE`] is off.
 pub fn current() -> Option<Install> {
+    if !UPDATES_IN_PLACE {
+        return None;
+    }
     craft_update::self_update::current(&craft_update::suite::LAUNCHER)
 }
 
@@ -155,6 +167,32 @@ mod tests {
     #[test]
     fn a_development_build_does_not_update_itself() {
         assert_eq!(current(), None);
+    }
+
+    /// A fork build never replaces itself, even where `craft_update` would: with
+    /// `CRAFT_UPDATE_DEV` set it treats this test binary as an installed copy (a standalone
+    /// executable on Linux). The variable is set on a child run of the test below, as setting it
+    /// here would need `unsafe`.
+    #[test]
+    fn a_fork_build_never_updates_itself_in_place() {
+        let exe = std::env::current_exe().unwrap();
+        let out = std::process::Command::new(exe)
+            .env(craft_update::self_update::DEV_VAR, "1")
+            .args(["--exact", "self_update::tests::opted_in_copy_is_not_replaced", "--include-ignored", "--nocapture"])
+            .output()
+            .unwrap();
+        let log = String::from_utf8_lossy(&out.stdout);
+        assert!(out.status.success() && log.contains("1 passed"), "{log}{}", String::from_utf8_lossy(&out.stderr));
+    }
+
+    /// Run by [`a_fork_build_never_updates_itself_in_place`] with `CRAFT_UPDATE_DEV` set.
+    #[test]
+    #[ignore = "run by a_fork_build_never_updates_itself_in_place, with CRAFT_UPDATE_DEV set"]
+    fn opted_in_copy_is_not_replaced() {
+        // Without the variable (a plain `--include-ignored` run) there is nothing to check.
+        if std::env::var_os(craft_update::self_update::DEV_VAR).is_some() {
+            assert_eq!(current(), None);
+        }
     }
 
     #[test]

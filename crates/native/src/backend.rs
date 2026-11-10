@@ -1258,7 +1258,9 @@ fn latest_for(
     now: i64,
 ) -> (Option<LatestRelease>, Origin, Option<Source>) {
     let repo = feed_repo(feed, app);
-    if fallback.trust_feed {
+    // ArtCraft's feed answers for upstream's launcher (storytold/craft-launcher), not this fork's:
+    // its release would be upstream's, so the launcher always asks GitHub about its own repo.
+    if fallback.trust_feed && app.id != LAUNCHER_ID {
         match feed.map(|f| f.answer(app, now)) {
             // The feed can lag GitHub by some minutes after a release. A check the user pressed
             // looks past it when GitHub's quota-free redirect names something newer (#91).
@@ -1303,6 +1305,10 @@ fn limit_notice(source_used: Source, limited_until: Option<i64>) -> Option<i64> 
 
 /// The repo to ask GitHub about, following the feed's repo renames.
 fn feed_repo(feed: Option<&Feed>, app: &CraftApp) -> String {
+    if app.id == LAUNCHER_ID {
+        // The feed's renames are upstream's (`storytold/`), never this fork's repo.
+        return app.repo.to_string();
+    }
     feed.map_or_else(|| app.repo.to_string(), |f| f.repo_for(app))
 }
 
@@ -1996,6 +2002,45 @@ mod tests {
         let fresh_shared = super::tests::shared();
         let (_, _, used) = latest_for(photo, Some(&feed), LOADED, &github, &fresh_shared, false, false, NOW + 2 * 86_400);
         assert_eq!(used, Some(Source::GitHubApi));
+    }
+
+    /// ArtCraft's feed answers for upstream's launcher, never this fork's: however fresh its entry
+    /// (with or without a repo, or a rename of upstream's repo), the launcher asks GitHub about
+    /// this fork's own repo.
+    #[test]
+    fn the_launcher_asks_github_about_the_forks_repo_never_the_feed() {
+        /// GitHub, noting which repos it's asked about.
+        #[derive(Default)]
+        struct Asked(Mutex<Vec<String>>);
+        impl ReleaseSource for Asked {
+            fn latest(&self, repo: &str, _pre: bool) -> Answer {
+                self.0.lock().unwrap().push(repo.to_string());
+                Answer { latest: LatestRelease::None, source: Source::GitHubApi }
+            }
+            fn cached(&self, _repo: &str, _pre: bool) -> Option<LatestRelease> {
+                None
+            }
+            fn rate_limited_until(&self) -> Option<i64> {
+                None
+            }
+            fn save(&self) {}
+        }
+        let upstream = |repo: &str| {
+            Feed::parse(&format!(
+                r#"{{"release_info": {{"apps": {{
+                "artcraft-launcher": {{{repo}"latest_release": {{"tag": "v9.0.0"}}, "app_last_fetched": "2026-10-09T13:00:00Z"}}
+            }}, "repo_renames": [{{"old_repo": "storytold/craft-launcher", "new_repo": "storytold/launcher"}}]}}}}"#
+            ))
+            .unwrap()
+        };
+        for feed in [upstream(""), upstream(r#""repo": "storytold/craft-launcher", "#)] {
+            let github = Asked::default();
+            let (latest, from, used) = latest_for(&LAUNCHER, Some(&feed), LOADED, &github, &shared(), false, false, NOW);
+            assert!(matches!(latest, Some(LatestRelease::None)), "{latest:?}");
+            assert_eq!((from, used), (Origin::GitHub, Some(Source::GitHubApi)));
+            assert_eq!(*github.0.lock().unwrap(), [artcraft_launcher_core::catalog::LAUNCHER_REPO]);
+            assert_eq!(feed_repo(Some(&feed), &LAUNCHER), artcraft_launcher_core::catalog::LAUNCHER_REPO);
+        }
     }
 
     /// Refresh looks past a feed that is behind GitHub (#91).

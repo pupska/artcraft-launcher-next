@@ -319,11 +319,13 @@ pub const LAUNCHER: CraftApp = app(
     "ArtCraft Launcher",
     "Installs and updates the Craft App Suite",
     [[0x0b, 0x0b, 0x0c], [0x0b, 0x0b, 0x0c], [0xf2, 0xf1, 0xee]],
-    "storytold/craft-launcher",
+    LAUNCHER_REPO,
 );
 
-/// The launcher's own repo, checked so it can say when a newer launcher is out.
-pub const LAUNCHER_REPO: &str = "storytold/craft-launcher";
+/// The launcher's own repo, checked so it can say when a newer launcher is out. This fork's, not
+/// upstream's (`storytold/craft-launcher`): a fork build must never be offered, or replaced by,
+/// upstream's releases. Its version list in Settings comes from here too.
+pub const LAUNCHER_REPO: &str = "pupska/artcraft-launcher-next";
 /// The launcher's own asset stem.
 pub const LAUNCHER_ID: &str = "artcraft-launcher";
 
@@ -358,6 +360,15 @@ pub fn app_icon_png(id: &str) -> Option<&'static [u8]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// This fork checks its own releases: pointed back at upstream, a fork build would be offered
+    /// upstream's launcher.
+    #[test]
+    fn the_launcher_checks_the_forks_own_repo() {
+        assert_eq!(LAUNCHER.repo, LAUNCHER_REPO);
+        assert!(!LAUNCHER_REPO.eq_ignore_ascii_case("storytold/craft-launcher"));
+        assert!(LAUNCHER.releases_url().starts_with(&format!("https://github.com/{LAUNCHER_REPO}/")), "{}", LAUNCHER.releases_url());
+    }
 
     #[test]
     fn every_app_has_its_icon() {

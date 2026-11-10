@@ -251,6 +251,9 @@ jobs:
             \`xattr -dr com.apple.quarantine "/Applications/ArtCraft Launcher.app"\`
           - **Linux** (\`.flatpak\`): \`flatpak install --user ./artcraft-launcher-$VERSION-linux-<arch>.flatpak\`
             (the freedesktop runtime comes from Flathub).
+
+          The launcher tells you when a newer release is out here and offers its download; it doesn't
+          replace itself, so install the new version the same way.
           EOF
       - name: Create or update the draft release
         run: |

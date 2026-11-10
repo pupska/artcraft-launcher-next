@@ -63,8 +63,9 @@ wasm-bindgen). **No Tauri, Electron or webview shells**, ever.
 The product name is always **ArtCraft Launcher** in user-facing text: UI, window titles, About,
 tray menu, notifications, installers, release names, docs prose. The suite is the **Craft App
 Suite**. Machine names stay lowercase: crates and binaries (`artcraft-launcher`,
-`artcraft-launcher-*`), file names, and the app id `ai.storyteller.artcraft-launcher`. Note the
-GitHub repo is `storytold/craft-launcher`, while every file and package is `artcraft-launcher-*`.
+`artcraft-launcher-*`), file names, and the app id `ai.storyteller.artcraft-launcher`. This
+repository is a fork: upstream is `storytold/craft-launcher`, this fork is
+`pupska/artcraft-launcher-next`, and every file and package is `artcraft-launcher-*` in both.
 
 ## 1. Workspace map
 
@@ -222,6 +223,14 @@ runner. It builds:
 | Windows | `artcraft-launcher-<ver>-windows-x64.msi`, `…-windows-x64-portable.zip`, `…-windows-x64.exe` (the bare binary) |
 | macOS | `artcraft-launcher-<ver>-macos-universal.dmg` |
 | Linux | `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.flatpak` (x86_64 only while the repository is private: GitHub's Arm runners are free for public repositories only) |
+
+**Fork builds don't update themselves in place.** The launcher checks this fork's own releases
+(`catalog::LAUNCHER_REPO`), always on GitHub: ArtCraft's release feed speaks for upstream's
+launcher, so the launcher skips it for itself (`backend::latest_for`). When a newer release is out,
+the banner offers its download for this platform instead of "Update and restart"
+(`self_update::UPDATES_IN_PLACE` is off): `craft_update` installs only updates from
+`storytold/craft-launcher` signed like the running copy or by ArtCraft's Apple team, so an unsigned
+fork build can't replace itself, and a macOS fork build would otherwise take upstream's signed DMG.
 
 The packaging scripts already handle missing credentials, and the workflow relies on that:
 `packaging/windows/sign.ps1` leaves the files unsigned, `packaging/macos/package.sh` signs ad-hoc
