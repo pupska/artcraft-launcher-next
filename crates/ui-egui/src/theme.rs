@@ -38,8 +38,12 @@ impl ThemeChoice {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tokens {
     pub dark: bool,
-    /// Page and card surface.
+    /// Page and card surface: the content panel.
     pub bg: Color32,
+    /// The window chrome round the content panel: the sidebar and the title bar.
+    pub chrome: Color32,
+    /// Cards and the table: a step up from the content panel.
+    pub raised: Color32,
     /// Badges, wells and row hovers.
     pub sunken: Color32,
     /// Body text.
@@ -80,6 +84,8 @@ impl Tokens {
     pub const DARK: Self = Self {
         dark: true,
         bg: hex(0x121316),
+        chrome: hex(0x1c1d21),
+        raised: hex(0x18191d),
         sunken: hex(0x060607),
         ink: hex(0xf2f1ee),
         ink_strong: hex(0xffffff),
@@ -100,6 +106,8 @@ impl Tokens {
     pub const LIGHT: Self = Self {
         dark: false,
         bg: hex(0xf2f1ee),
+        chrome: hex(0xe3e2de),
+        raised: hex(0xf8f7f5),
         sunken: hex(0xe9e8e4),
         ink: hex(0x101014),
         ink_strong: hex(0x000000),
@@ -175,8 +183,8 @@ fn visuals(t: &Tokens) -> Visuals {
     v.faint_bg_color = t.sunken;
     v.code_bg_color = t.sunken;
     v.window_stroke = Stroke::new(1.0, t.line_strong);
-    v.window_corner_radius = CornerRadius::ZERO;
-    v.menu_corner_radius = CornerRadius::ZERO;
+    v.window_corner_radius = CornerRadius::same(SHEET_RADIUS);
+    v.menu_corner_radius = CornerRadius::same(10);
     v.window_shadow = shadow(t);
     v.popup_shadow = shadow(t);
     v.override_text_color = Some(t.ink);
@@ -195,7 +203,7 @@ fn visuals(t: &Tokens) -> Visuals {
         w.bg_fill = fill;
         w.weak_bg_fill = fill;
         w.bg_stroke = Stroke::new(1.0, stroke);
-        w.corner_radius = CornerRadius::ZERO;
+        w.corner_radius = CornerRadius::same(CONTROL_RADIUS);
         w.fg_stroke = Stroke::new(1.0, fg);
         w.expansion = 0.0;
     }
@@ -232,6 +240,43 @@ pub fn apply(ctx: &egui::Context, choice: ThemeChoice) {
 
 /// Height of buttons, inputs and filter cells (the site's medium button).
 pub const CONTROL_H: f32 = 34.0;
+
+// ---- corners -----------------------------------------------------------------------------------
+// One small scale of radii, so everything rounded reads as one family.
+
+/// Buttons, inputs, toggles and other controls.
+pub const CONTROL_RADIUS: u8 = 8;
+/// Cards, the table, and boxes inside pages and dialogs.
+pub const CARD_RADIUS: u8 = 12;
+/// Dialogs, the app page and popups over the window.
+pub const SHEET_RADIUS: u8 = 16;
+/// Badges and tags.
+pub const BADGE_RADIUS: u8 = 5;
+
+/// A control's corners.
+pub fn control_r() -> CornerRadius {
+    CornerRadius::same(CONTROL_RADIUS)
+}
+
+/// A card's or box's corners.
+pub fn card_r() -> CornerRadius {
+    CornerRadius::same(CARD_RADIUS)
+}
+
+/// A dialog's corners.
+pub fn sheet_r() -> CornerRadius {
+    CornerRadius::same(SHEET_RADIUS)
+}
+
+/// A badge's corners.
+pub fn badge_r() -> CornerRadius {
+    CornerRadius::same(BADGE_RADIUS)
+}
+
+/// Only the top corners of `r`: a header band at the top of a rounded frame.
+pub fn top_only(r: CornerRadius) -> CornerRadius {
+    CornerRadius { nw: r.nw, ne: r.ne, sw: 0, se: 0 }
+}
 
 /// The site's `.hud-label`: 11 px Geist Mono 500, upper case, 0.15 em apart.
 pub const HUD_SIZE: f32 = 11.0;

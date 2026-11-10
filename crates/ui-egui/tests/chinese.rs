@@ -225,8 +225,8 @@ fn simplified_chinese_switches_persists_and_keeps_install_actions() {
     let (mut table, _) = harness_language(ViewMode::Table, egui::Theme::Light, true, &restored.language);
     table.run_steps(6);
     table.get_by_label("版本");
-    assert!(table.query_all_by_label_contains("年10月").count() >= 1);
     snapshot(&mut table, "table-zh-CN-light");
+    assert!(table.query_all_by_label_contains("年10月").count() >= 1);
     let (mut web, _) = harness_language(ViewMode::Grid, egui::Theme::Dark, false, &restored.language);
     web.run_steps(6);
     assert!(web.query_all_by_label("下载 macOS 版").count() >= 3);
