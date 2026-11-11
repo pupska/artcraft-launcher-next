@@ -1,5 +1,4 @@
 <p align="center">
-  <a href="https://getartcraft.com/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
       <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
@@ -11,7 +10,7 @@
   <img src="assets/app-icon/hicolor/256x256/apps/ai.storyteller.artcraft-launcher.png" width="128" height="128" alt="ArtCraft Launcher icon: a blue stylised letter A">
 </p>
 
-<h1 align="center">ArtCraft Launcher</h1>
+<h1 align="center">ArtCraft Launcher NEXT</h1>
 
 <p align="center"><i>A community fork of <a href="https://github.com/storytold/craft-launcher">ArtCraft Launcher</a>, with a redesigned interface.</i></p>
 
