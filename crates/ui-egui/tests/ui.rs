@@ -4382,3 +4382,113 @@ fn readme_screenshots() {
         snapshot(&mut h, name);
     }
 }
+
+/// The width of the sidebar's Store tab: the sidebar's width less its padding.
+fn store_tab_width(h: &Harness<'_, Option<LauncherUi>>) -> f32 {
+    h.get_by_role_and_label(egui::accesskit::Role::Tab, "Store").rect().width()
+}
+
+#[test]
+/// The title bar's toggle folds the sidebar down to its icons and opens it again; folded, every
+/// page keeps its name (and count) for screen readers and its tooltip, the status and community
+/// links are gone, and the choice is saved.
+fn the_sidebar_folds_to_its_icons_and_opens_again() {
+    for theme in [egui::Theme::Dark, egui::Theme::Light] {
+        let suffix = if theme == egui::Theme::Dark { "dark" } else { "light" };
+        let (mut h, _) = harness_with_title_bar(events(), ViewMode::Grid, theme, true, 1.0, artcraft_launcher_ui_egui::TitleBar::Custom);
+        h.set_size(egui::vec2(1180.0, 800.0));
+        h.run_steps(8);
+        let open = store_tab_width(&h);
+        assert!(open > 180.0, "open: {open}");
+        h.get_by_label_contains("Checked ");
+
+        h.get_by_label("Collapse sidebar").click();
+        h.run();
+        assert!(h.state().as_ref().unwrap().settings.sidebar_collapsed);
+        let folded = store_tab_width(&h);
+        assert!(folded <= 48.0, "folded: {folded}");
+        for page in ["Installed 4", "Updates 2", "Settings"] {
+            h.get_by_label(page);
+        }
+        assert!(h.query_by_label_contains("Checked ").is_none(), "the status is gone when folded");
+        for link in ["Website", "Discord", "YouTube"] {
+            assert!(h.query_by_label(link).is_none(), "{link}: the community links are gone when folded");
+        }
+        // Folded, the pages still switch.
+        h.get_by_label("Updates 2").click();
+        h.run();
+        assert_eq!(h.state().as_ref().unwrap().visible_ids_for_test().len(), 2);
+        snapshot(&mut h, &format!("sidebar-folded-{suffix}"));
+
+        h.get_by_label("Expand sidebar").click();
+        h.run();
+        assert!(!h.state().as_ref().unwrap().settings.sidebar_collapsed);
+        assert_eq!(store_tab_width(&h), open);
+        h.get_by_label_contains("Checked ");
+    }
+}
+
+#[test]
+/// With animations on, the sidebar slides: a few frames after the toggle it is between its two
+/// widths, and it gets there within half a second, both ways.
+fn with_animations_on_the_sidebar_slides() {
+    let mut h = short_window(Rc::new(Cell::new(false)));
+    let open = store_tab_width(&h);
+    snapshot(&mut h, "sidebar-sliding-0");
+    h.get_by_label("Collapse sidebar").click();
+    h.run_steps(6);
+    let moving = store_tab_width(&h);
+    assert!(moving < open && moving > 48.0, "a few frames in: {moving} of {open}");
+    // The slide, frame by frame (saved only when screenshots are asked for).
+    for frame in 1..=3 {
+        snapshot(&mut h, &format!("sidebar-sliding-{frame}"));
+        h.run_steps(3);
+    }
+    h.run_steps(30);
+    snapshot(&mut h, "sidebar-sliding-4");
+    let folded = store_tab_width(&h);
+    assert!(folded <= 48.0, "after half a second: {folded}");
+    h.get_by_label("Expand sidebar").click();
+    h.run_steps(6);
+    let moving = store_tab_width(&h);
+    assert!(moving > folded && moving < open, "opening, a few frames in: {moving}");
+    h.run_steps(30);
+    assert_eq!(store_tab_width(&h), open);
+}
+
+#[test]
+/// With animations off in the OS, the sidebar folds and opens at once.
+fn with_animations_off_the_sidebar_folds_at_once() {
+    let mut h = short_window(Rc::new(Cell::new(true)));
+    let open = store_tab_width(&h);
+    h.get_by_label("Collapse sidebar").click();
+    h.step();
+    h.step();
+    assert!(store_tab_width(&h) <= 48.0, "{}", store_tab_width(&h));
+    h.get_by_label("Expand sidebar").click();
+    h.step();
+    h.step();
+    assert_eq!(store_tab_width(&h), open);
+}
+
+#[test]
+/// The sidebar's toggle sits on the title's line in the title bar, open and folded, and it never
+/// runs under macOS's traffic lights.
+fn the_sidebar_toggle_sits_on_the_titles_line() {
+    for bar in [artcraft_launcher_ui_egui::TitleBar::Custom, artcraft_launcher_ui_egui::TitleBar::MacOs] {
+        let (mut h, _) = harness_with_title_bar(events(), ViewMode::Grid, egui::Theme::Dark, true, 1.0, bar);
+        h.set_size(egui::vec2(1180.0, 800.0));
+        h.run_steps(8);
+        for label in ["Collapse sidebar", "Expand sidebar"] {
+            let toggle = h.get_by_label(label).rect();
+            let title = h.get_by_label("Craft Launcher").rect();
+            assert!((toggle.center().y - title.center().y).abs() <= 1.0, "{bar:?} {label}: {toggle:?} beside {title:?}");
+            assert!(toggle.right() <= title.left(), "{bar:?} {label}: the toggle comes before the title");
+            if bar == artcraft_launcher_ui_egui::TitleBar::MacOs {
+                assert!(toggle.left() >= 76.0, "{bar:?} {label}: under the traffic lights: {toggle:?}");
+            }
+            h.get_by_label(label).click();
+            h.run();
+        }
+    }
+}

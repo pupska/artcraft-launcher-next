@@ -280,6 +280,8 @@ month	Dec	დეკ
 	link	ბმული
 	No apps match	შესაბამისი აპლიკაცია ვერ მოიძებნა
 	Store	მაღაზია
+	Collapse sidebar	გვერდითი პანელის ჩაკეცვა
+	Expand sidebar	გვერდითი პანელის გაშლა
 	No apps installed yet	ჯერ არცერთი აპლიკაცია არ არის დაინსტალირებული
 	Everything is up to date	ყველაფერი განახლებულია
 	Open ArtCraft Launcher to update.	განახლებისთვის გახსენით ArtCraft Launcher.
@@ -321,6 +323,7 @@ filter	Installed	დაინსტალირებული
 
 # Message templates (@msg): toasts from the backend. {placeholders} match any text.
 @msg	Couldn't open {name}: {e}	{name} ვერ გაიხსნა: {e}
+@msg	ArtCraft Launcher couldn't start its window on {backend}: {e}	ArtCraft Launcher-ის ფანჯარა ვერ გაეშვა {backend}-ზე: {e}
 @msg	Download cancelled	ჩამოტვირთვა გაუქმდა
 @msg	{name} updated to {version}	{name} განახლდა ვერსიამდე {version}
 @msg	{name} installed: {version}	{name} დაინსტალირდა: {version}

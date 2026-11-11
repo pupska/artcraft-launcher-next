@@ -279,6 +279,8 @@ month	Dec	12月
 	link	リンク
 	No apps match	一致するアプリがありません
 	Store	ストア
+	Collapse sidebar	サイドバーを折りたたむ
+	Expand sidebar	サイドバーを展開
 	No apps installed yet	インストール済みのアプリはまだありません
 	Everything is up to date	すべて最新です
 	Open ArtCraft Launcher to update.	更新するには ArtCraft Launcher を開いてください。
@@ -320,6 +322,7 @@ filter	Installed	インストール済み
 
 # Message templates (@msg): toasts from the backend. {placeholders} match any text.
 @msg	Couldn't open {name}: {e}	{name} を開けませんでした: {e}
+@msg	ArtCraft Launcher couldn't start its window on {backend}: {e}	ArtCraft Launcher のウィンドウを {backend} で起動できませんでした: {e}
 @msg	Download cancelled	ダウンロードをキャンセルしました
 @msg	{name} updated to {version}	{name} を {version} に更新しました
 @msg	{name} installed: {version}	{name} をインストールしました: {version}

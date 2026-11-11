@@ -273,6 +273,8 @@ month	Dec	дек.
 	link	ссылка
 	No apps match	Нет подходящих приложений
 	Store	Магазин
+	Collapse sidebar	Свернуть боковую панель
+	Expand sidebar	Развернуть боковую панель
 	No apps installed yet	Пока нет установленных приложений
 	Everything is up to date	Всё обновлено
 	Open ArtCraft Launcher to update.	Откройте ArtCraft Launcher, чтобы обновить.
@@ -300,6 +302,7 @@ filter	Installed	Установлены
 
 # Message templates (@msg): toasts from the backend. {placeholders} match any text.
 @msg	Couldn't open {name}: {e}	Не удалось открыть {name}: {e}
+@msg	ArtCraft Launcher couldn't start its window on {backend}: {e}	Не удалось открыть окно ArtCraft Launcher на {backend}: {e}
 @msg	Download cancelled	Скачивание отменено
 @msg	{name} updated to {version}	Приложение {name} обновлено до {version}
 @msg	{name} installed: {version}	Приложение {name} установлено: {version}

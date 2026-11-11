@@ -75,7 +75,8 @@ you when an update is out. It is a small native app that can sit in your menu ba
 The sidebar splits the catalog into pages: **Installed** (the apps on this computer), **Store**
 (every app in the suite) and **Updates** (the ones with a newer version waiting, with a count).
 Apps you hide get a **Hidden Apps** page until you bring them back. Each page shows its apps as
-cards or as a sortable table.
+cards or as a sortable table. The button at the left of the title bar folds the sidebar down to its
+icons for more room, and opens it again.
 
 ## Features
 
