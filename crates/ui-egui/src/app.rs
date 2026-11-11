@@ -30,6 +30,11 @@ pub enum TitleBar {
 }
 
 /// What only the shell can do. Every method has a do-nothing default (the web build).
+/// The gap between the content panel and the window's right and bottom edges.
+const CONTENT_INSET: i8 = 10;
+/// The content panel's corner radius.
+const CONTENT_RADIUS: u8 = 12;
+
 pub trait Host {
     /// Who draws the title bar.
     fn title_bar(&self) -> TitleBar {
@@ -851,48 +856,39 @@ impl LauncherUi {
             ctx.request_repaint_after(Duration::from_millis(50));
         }
 
-        // The bars' separator lines are the hairlines under the header and over the footer.
+        // The sidebar runs the window's full height; the title bar and the content panel share
+        // what is left. Both bars are the chrome colour, and the content sits on its own rounded
+        // panel inset into them.
+        let bar = host.title_bar();
+        self.settle_page();
+        egui::Panel::left("sidebar")
+            .frame(egui::Frame::new().fill(tokens.chrome))
+            .exact_size(crate::sidebar::SIDEBAR_W)
+            .resizable(false)
+            .show_separator_line(false)
+            .show(ui, |ui| self.sidebar(ui, bar));
         egui::Panel::top("header")
-            .frame(egui::Frame::new().fill(tokens.bg))
+            .frame(egui::Frame::new().fill(tokens.chrome))
             .exact_size(crate::views::HEADER_H)
             .resizable(false)
-            .show(ui, |ui| self.header(ui, host.title_bar()));
-        egui::Panel::bottom("footer")
-            .frame(egui::Frame::new().fill(tokens.bg).inner_margin(egui::Margin::symmetric(20, 0)))
-            .exact_size(crate::views::FOOTER_H)
-            .resizable(false)
-            .show(ui, |ui| self.footer(ui));
+            .show_separator_line(false)
+            .show(ui, |ui| self.header(ui, bar));
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(tokens.bg).inner_margin(egui::Margin { left: 20, right: 20, top: 18, bottom: 0 }))
+            .frame(egui::Frame::new().fill(tokens.chrome).inner_margin(egui::Margin { left: 0, right: CONTENT_INSET, top: 0, bottom: CONTENT_INSET }))
             .show(ui, |ui| {
-                self.toolbar(ui);
-                ui.add_space(18.0);
-                let ids = self.visible_ids();
-                // The table is wider than a narrow window: let it scroll sideways too.
-                let scroll = match self.settings.view {
-                    ViewMode::Grid => egui::ScrollArea::vertical(),
-                    ViewMode::Table => egui::ScrollArea::both(),
-                };
-                scroll.auto_shrink(false).show(ui, |ui| {
-                    // Escape must run even when search/filter leaves no rows (grid/table skipped).
-                    self.clear_pin_drag_on_escape(ui);
-                    if ids.is_empty() {
-                        ui.add_space(40.0);
-                        ui.vertical_centered(|ui| {
-                            crate::widgets::hud(ui, tl!("No apps match"), tokens.muted);
-                        });
-                    } else {
-                        match self.settings.view {
-                            ViewMode::Grid => self.grid(ui, &ids),
-                            ViewMode::Table => self.table(ui, &ids),
-                        }
-                    }
-                    ui.add_space(16.0);
-                    // The drop targets have seen this frame's pointer: a released drag ends here.
-                    if !ui.input(|i| i.pointer.primary_down()) {
-                        self.pin_dragging = None;
-                    }
-                });
+                egui::Frame::new()
+                    .fill(tokens.bg)
+                    .stroke(tokens.hairline())
+                    .corner_radius(CONTENT_RADIUS)
+                    .inner_margin(egui::Margin { left: 24, right: 24, top: 20, bottom: 0 })
+                    .show(ui, |ui| {
+                        // The panel fills the space left even when the page has little to show;
+                        // its bottom edge keeps clear of the rounded corners.
+                        let size = (ui.available_size() - egui::vec2(0.0, f32::from(CONTENT_RADIUS))).max(egui::Vec2::ZERO);
+                        ui.set_min_size(size);
+                        ui.set_max_height(size.y);
+                        self.page(ui, &tokens);
+                    });
             });
         self.details_drawer(&ctx);
         self.dialogs(&ctx, host);
@@ -901,6 +897,54 @@ impl LauncherUi {
         if host.title_bar() == TitleBar::Custom {
             crate::widgets::window_edges(&ctx);
         }
+    }
+
+    /// The page on show: its heading and toolbar, then its apps as cards or a table.
+    fn page(&mut self, ui: &mut egui::Ui, tokens: &Tokens) {
+        let ids = self.visible_ids();
+        self.toolbar(ui, ids.len());
+        ui.add_space(18.0);
+        // The table is wider than a narrow window: let it scroll sideways too.
+        let scroll = match self.settings.view {
+            ViewMode::Grid => egui::ScrollArea::vertical(),
+            ViewMode::Table => egui::ScrollArea::both(),
+        };
+        scroll.auto_shrink(false).show(ui, |ui| {
+            // Escape must run even when search/filter leaves no rows (grid/table skipped).
+            self.clear_pin_drag_on_escape(ui);
+            if ids.is_empty() {
+                ui.add_space(40.0);
+                // An empty page says why: nothing matches the search, or nothing is there yet.
+                let empty = if !self.search.trim().is_empty() {
+                    tl!("No apps match")
+                } else {
+                    match self.settings.filter {
+                        Filter::Installed => tl!("No apps installed yet"),
+                        Filter::Updates => tl!("Everything is up to date"),
+                        _ => tl!("No apps match"),
+                    }
+                };
+                ui.vertical_centered(|ui| {
+                    crate::widgets::hud(ui, empty, tokens.muted);
+                    if self.settings.filter == Filter::Installed && self.search.trim().is_empty() {
+                        ui.add_space(14.0);
+                        if crate::widgets::button(ui, tl!("Store"), crate::widgets::Kind::Secondary, 0.0).clicked() {
+                            self.settings.filter = Filter::All;
+                        }
+                    }
+                });
+            } else {
+                match self.settings.view {
+                    ViewMode::Grid => self.grid(ui, &ids),
+                    ViewMode::Table => self.table(ui, &ids),
+                }
+            }
+            ui.add_space(16.0);
+            // The drop targets have seen this frame's pointer: a released drag ends here.
+            if !ui.input(|i| i.pointer.primary_down()) {
+                self.pin_dragging = None;
+            }
+        });
     }
 
     /// Test hook for the filtered/sorted catalog ids currently shown.
@@ -1063,7 +1107,7 @@ impl LauncherUi {
         }
         ctx.request_repaint_after(Duration::from_millis(250));
         let t = Tokens::get(ctx);
-        let anchor = egui::vec2(-20.0, -(crate::views::FOOTER_H + 12.0));
+        let anchor = egui::vec2(-(f32::from(CONTENT_INSET) + 16.0), -(f32::from(CONTENT_INSET) + 16.0));
         egui::Area::new(egui::Id::unique("toasts"))
             .role(egui::Role::Alert)
             .anchor(egui::Align2::RIGHT_BOTTOM, anchor)

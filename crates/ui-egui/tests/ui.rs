@@ -1677,7 +1677,7 @@ fn a_narrow_toolbar_names_its_controls_and_passes_strict_accessibility() {
     h.run_steps(6);
     h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Search apps");
     h.get_by_role_and_label(egui::accesskit::Role::Button, "Check for updates");
-    h.get_by_role_and_label(egui::accesskit::Role::Button, "Settings");
+    h.get_by_role_and_label(egui::accesskit::Role::Tab, "Settings");
     h.get_by_role_and_label(egui::accesskit::Role::ComboBox, "Sort");
     h.get_by_role_and_label(egui::accesskit::Role::Button, "More actions for PhotoCraft");
     let unnamed = h.unnamed_widgets();
@@ -1770,6 +1770,8 @@ fn grid_shows_every_status_and_installs_on_click() {
 #[test]
 fn downloads_can_be_paused_resumed_and_discarded() {
     let (mut h, sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
+    // Wide enough for three columns beside the sidebar, so every download is on screen.
+    h.set_size(egui::vec2(1404.0, 1200.0));
     h.run_steps(4);
     // Bring the paused and reconnecting apps on screen.
     if let Some(l) = h.state_mut().as_mut() {
@@ -3535,8 +3537,8 @@ fn the_drawer_and_the_enlarged_picture_survive_any_window_size() {
 }
 
 #[test]
-/// At 720–1180 px the rate-limit notice stays readable and clear of the footer's checked time
-/// and eight right-side links.
+/// At 720–1180 px the rate-limit notice stays readable in the sidebar's foot, under the checked
+/// time and clear of the eight links.
 fn the_rate_limit_notice_never_runs_under_the_footer_links() {
     for width in [720.0, 960.0, 1180.0] {
         let mut evs = events();
@@ -3566,21 +3568,20 @@ fn the_rate_limit_notice_never_runs_under_the_footer_links() {
         );
         h.run_steps(6);
         snapshot(&mut h, &format!("footer-rate-limited-{width}"));
-        // Full or short, the notice says when GitHub can be asked again.
+        // In the sidebar's foot: the check time, the notice under it, then the eight links.
         let notice = h.get_by_label_contains("in 30 min").rect();
         let checked = h.get_by_label_contains("Checked ").rect();
-        // Cut short in a narrow window, but enough of it left to read.
-        assert!(notice.width() >= 120.0 && notice.right() <= width, "{width}: notice {notice:?}");
-        // Everything on the footer's right: the website, GitHub and Discord icons and the social icons.
-        let mut right = Vec::new();
+        let sidebar = 224.0;
+        assert!(notice.width() >= 120.0 && notice.right() <= sidebar, "{width}: notice {notice:?}");
+        assert!(checked.right() <= sidebar && checked.bottom() <= notice.top(), "{width}: check time {checked:?} above the notice {notice:?}");
+        let mut links = Vec::new();
         for label in ["Website", "GitHub", "Discord", "X", "YouTube", "TikTok", "Instagram", "LinkedIn"] {
-            right.extend(h.query_all_by_label(label).map(|n| n.rect()).filter(|r| (r.center().y - notice.center().y).abs() < 12.0));
+            links.extend(h.query_all_by_label(label).map(|n| n.rect()).filter(|r| r.right() <= sidebar && r.top() >= notice.bottom()));
         }
-        assert_eq!(right.len(), 8, "{width}: {right:?}");
+        assert_eq!(links.len(), 8, "{width}: {links:?}");
         assert!(h.query_by_label_contains("Installing for").is_none(), "{width}: the footer no longer names the platform");
-        for r in right {
-            assert!(!r.intersects(notice), "{width}: notice {notice:?} overlaps {r:?}");
-            assert!(!r.intersects(checked), "{width}: check time {checked:?} overlaps {r:?}");
+        for r in links {
+            assert!(!r.intersects(notice) && !r.intersects(checked), "{width}: {r:?} overlaps the status");
         }
     }
 }
@@ -3590,7 +3591,8 @@ fn the_rate_limit_notice_never_runs_under_the_footer_links() {
 /// overlaps.
 fn toolbar_keeps_navigation_refresh_search_and_view_on_one_unclipped_row() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
-    for width in [720.0, 800.0, 1180.0] {
+    // The content widths of 720–1180 px windows from before the 224 px sidebar.
+    for width in [944.0, 1024.0, 1404.0] {
         h.set_size(egui::vec2(width, 900.0));
         h.run_steps(6);
         let refresh = h.get_by_label("Check for updates").rect();
@@ -3616,7 +3618,8 @@ fn the_toolbar_has_no_filter_dropdown() {
     use artcraft_launcher_ui_egui::settings::Filter;
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
-    for label in ["All 13", "Installed 4", "Updates 2", "Not installed 9"] {
+    // The pages are the sidebar's tabs (Installed 4, Updates 2), not a dropdown.
+    for label in ["All 13", "Not installed 9"] {
         assert!(h.query_by_value(label).is_none() && h.query_by_label(label).is_none(), "{label}");
     }
     // Only the sort dropdown is left.
@@ -3630,8 +3633,9 @@ fn saved_filters_are_migrated_on_ui_construction() {
 
     for (saved, expected) in [
         (r#"{"filter":"All"}"#, Filter::All),
-        (r#"{"filter":"Installed"}"#, Filter::All),
-        (r#"{"filter":"Updates"}"#, Filter::All),
+        // Installed and Updates are sidebar pages again; Not installed is part of the Store.
+        (r#"{"filter":"Installed"}"#, Filter::Installed),
+        (r#"{"filter":"Updates"}"#, Filter::Updates),
         (r#"{"filter":"NotInstalled"}"#, Filter::All),
         (r#"{"filter":"Hidden"}"#, Filter::Hidden),
     ] {
@@ -3815,7 +3819,8 @@ fn with_animations_on_the_wheel_glides() {
 /// Moves the pointer from one card to the next. Returns how many frames are drawn before the
 /// window is still again.
 fn frames_to_hover_the_next_card(h: &mut Harness<'_, Option<LauncherUi>>) -> u64 {
-    let cards: Vec<egui::Pos2> = ["Image editing", "Vector illustration"].map(|t| h.get_by_label(t).rect().center()).to_vec();
+    let cards: Vec<egui::Pos2> =
+        ["Motion graphics and visual effects", "Photo library and raw development"].map(|t| h.get_by_label(t).rect().center()).to_vec();
     // Still to begin with: the icons are in, the first card is lit and the scroll bar is showing.
     h.hover_at(cards[0]);
     h.run();
@@ -4318,4 +4323,45 @@ fn an_apps_page_is_a_card_in_the_middle_with_next_and_previous_arrows_and_closes
     h.drop_at(egui::pos2(10.0, 450.0));
     h.run_steps(30);
     assert!(!showing(&h, "photocraft"), "a click outside did not close it");
+}
+
+#[test]
+/// The sidebar's pages each show their own apps: Installed only what is on this computer,
+/// Updates only what has one waiting, and the Store everything.
+fn sidebar_pages_show_their_own_apps() {
+    use artcraft_launcher_ui_egui::settings::Filter;
+    for theme in [egui::Theme::Dark, egui::Theme::Light] {
+        let suffix = if theme == egui::Theme::Dark { "dark" } else { "light" };
+        let (mut h, _) = harness_with_title_bar(events(), ViewMode::Grid, theme, true, 1.0, artcraft_launcher_ui_egui::TitleBar::MacOs);
+        h.set_size(egui::vec2(1180.0, 800.0));
+        h.run_steps(8);
+        let all = h.state().as_ref().unwrap().visible_ids_for_test().len();
+        snapshot(&mut h, &format!("page-store-{suffix}"));
+        h.get_by_label("Installed 4").click();
+        h.run_steps(4);
+        assert_eq!(h.state().as_ref().unwrap().settings.filter, Filter::Installed);
+        let installed = h.state().as_ref().unwrap().visible_ids_for_test();
+        assert_eq!(installed.len(), 4);
+        assert!(installed.len() < all);
+        snapshot(&mut h, &format!("page-installed-{suffix}"));
+        h.get_by_label("Updates 2").click();
+        h.run_steps(4);
+        assert_eq!(h.state().as_ref().unwrap().visible_ids_for_test().len(), 2);
+        snapshot(&mut h, &format!("page-updates-{suffix}"));
+        h.get_by_label("Store").click();
+        h.run_steps(4);
+        assert_eq!(h.state().as_ref().unwrap().visible_ids_for_test().len(), all);
+    }
+}
+
+#[test]
+/// The web build can't manage apps, so it has no Installed or Updates page: only the Store.
+fn the_web_sidebar_has_only_the_store() {
+    let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, false);
+    h.set_size(egui::vec2(1000.0, 760.0));
+    h.run_steps(6);
+    h.get_by_role_and_label(egui::accesskit::Role::Tab, "Store");
+    assert!(h.query_by_label("Installed 4").is_none());
+    assert!(h.query_by_label_contains("Updates").is_none());
+    snapshot(&mut h, "page-web-store-dark");
 }

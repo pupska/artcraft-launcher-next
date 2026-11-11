@@ -19,9 +19,11 @@ pub enum ViewMode {
 pub enum Filter {
     #[default]
     All,
-    // These three no longer appear in the toolbar but must remain deserializable from old settings.
+    /// The Installed page.
     Installed,
+    /// The Updates page.
     Updates,
+    /// No longer a page (the Store shows these), but still read from old settings.
     NotInstalled,
     /// Apps the user chose to hide from the other lists.
     Hidden,
@@ -142,9 +144,9 @@ impl Settings {
     /// Machine-readable code for "follow the system language".
     pub const LANGUAGE_AUTO: &str = "auto";
 
-    /// Clear saved catalog filters whose controls were removed from the toolbar.
+    /// Clear a saved filter that no page shows any more (Not installed is part of the Store).
     pub fn migrate(&mut self) {
-        if !matches!(self.filter, Filter::All | Filter::Hidden) {
+        if self.filter == Filter::NotInstalled {
             self.filter = Filter::All;
         }
     }

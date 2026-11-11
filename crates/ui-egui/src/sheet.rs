@@ -19,7 +19,12 @@ pub(crate) fn size(ctx: &Context, max: Vec2) -> Vec2 {
 
 /// The modal's frame: no inner margin, so the header can run to the edges.
 pub(crate) fn frame(t: &Tokens) -> Frame {
-    Frame::new().fill(t.bg).stroke(egui::Stroke::new(1.0, t.line_strong)).shadow(crate::theme::shadow(t)).inner_margin(0)
+    Frame::new()
+        .fill(t.bg)
+        .stroke(egui::Stroke::new(1.0, t.line_strong))
+        .shadow(crate::theme::shadow(t))
+        .corner_radius(theme::sheet_r())
+        .inner_margin(0)
 }
 
 /// The header: an icon, the title and a small caption, with whatever `right` puts at the right
@@ -27,8 +32,11 @@ pub(crate) fn frame(t: &Tokens) -> Frame {
 pub(crate) fn hero(ui: &mut Ui, icon: Option<ImageSource<'static>>, title: &str, caption: &str, right: impl FnOnce(&mut Ui)) -> f32 {
     let t = Tokens::get(ui.ctx());
     let top = ui.cursor().top();
-    let shown =
-        Frame::new().fill(tint(t.accent, if t.dark { 0.09 } else { 0.07 })).inner_margin(Margin::symmetric(theme::PAD as i8, 18)).show(ui, |ui| {
+    let shown = Frame::new()
+        .fill(tint(t.accent, if t.dark { 0.09 } else { 0.07 }))
+        .corner_radius(theme::top_only(theme::sheet_r()))
+        .inner_margin(Margin::symmetric(theme::PAD as i8, 18))
+        .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 if let Some(icon) = icon {
@@ -47,7 +55,13 @@ pub(crate) fn hero(ui: &mut Ui, icon: Option<ImageSource<'static>>, title: &str,
             });
         });
     let r = shown.response.rect;
-    ui.painter().rect_filled(egui::Rect::from_min_size(r.min, vec2(r.width(), 2.0)), CornerRadius::ZERO, t.accent);
+    // The accent line along the top, kept clear of the rounded corners.
+    let inset = f32::from(crate::theme::SHEET_RADIUS);
+    ui.painter().rect_filled(
+        egui::Rect::from_min_size(r.min + vec2(inset, 0.0), vec2((r.width() - 2.0 * inset).max(0.0), 2.0)),
+        CornerRadius::same(1),
+        t.accent,
+    );
     ui.painter().hline(r.x_range(), r.bottom() - 0.5, t.hairline());
     ui.cursor().top() - top
 }
@@ -92,7 +106,7 @@ pub(crate) fn columns(ui: &mut Ui, wide: bool, gap: f32, left: impl FnOnce(&mut 
 /// A titled box: a hairline frame with a small caps heading, for one group of settings.
 pub(crate) fn panel(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui)) {
     let t = Tokens::get(ui.ctx());
-    Frame::new().stroke(t.hairline()).inner_margin(theme::BOX_MARGIN).show(ui, |ui| {
+    Frame::new().stroke(t.hairline()).corner_radius(theme::card_r()).inner_margin(theme::BOX_MARGIN).show(ui, |ui| {
         ui.set_width(ui.available_width());
         widgets::hud(ui, title, t.faint);
         ui.add_space(8.0);
@@ -105,7 +119,7 @@ pub(crate) fn panel(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui)) {
 /// visible heading (egui 0.37's `Response::labelled_by`), without adding a second identical label.
 pub(crate) fn panel_with_heading(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui, egui::Id)) {
     let t = Tokens::get(ui.ctx());
-    Frame::new().stroke(t.hairline()).inner_margin(theme::BOX_MARGIN).show(ui, |ui| {
+    Frame::new().stroke(t.hairline()).corner_radius(theme::card_r()).inner_margin(theme::BOX_MARGIN).show(ui, |ui| {
         ui.set_width(ui.available_width());
         let heading = widgets::hud(ui, title, t.faint);
         ui.add_space(8.0);

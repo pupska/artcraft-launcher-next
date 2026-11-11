@@ -1,44 +1,270 @@
 name: Release
 
+# This fork's release: builds ArtCraft Launcher for Windows (.msi, portable .zip and a plain .exe),
+# macOS (universal .dmg) and Linux (.flatpak), and drafts a GitHub Release with SHA256SUMS.txt.
+#
+# It needs no signing credentials, and it runs only on GitHub's standard runners (no paid larger
+# runners). Without credentials the builds are unsigned:
+#   - Windows: packaging/windows/sign.ps1 leaves the .exe and .msi unsigned (SmartScreen warns).
+#   - macOS: packaging/macos/package.sh ad-hoc signs and does not notarize (Gatekeeper warns).
+#   - Flatpak: the bundle is not GPG-signed.
+# The release notes say how to open each one. Upstream (storytold/craft-launcher) releases through
+# the suite's shared workflow, which refuses to run without the signing secrets; this fork has none.
+#
+# Run it by pushing to the `release` branch, or from the Actions tab (workflow_dispatch) with an
+# optional version override for a test run.
+
 on:
   push:
     branches: [release]
   workflow_dispatch:
     inputs:
       version:
-        description: "Version override for a test run, e.g. 0.2.0-rc.1 (empty: Cargo.toml)"
+        description: "Version override for a test run, e.g. 0.15.0-rc.1 (empty: Cargo.toml)"
         type: string
         default: ""
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+
 jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      date: ${{ steps.v.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Resolve the version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          # The version lives only in [workspace.package] in Cargo.toml (see packaging/env.sh).
+          version="${INPUT_VERSION#v}"
+          if [ -z "$version" ]; then
+            version="$(awk '/^\[/ { p = ($0 == "[workspace.package]"); next } p && $1 == "version" { gsub(/[" ]/, "", $3); print $3; exit }' Cargo.toml)"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::not a version: '$version'"
+            exit 1
+          fi
+          case "$version" in *-*) prerelease=true ;; *) prerelease=false ;; esac
+          {
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "date=$(date -u +%Y-%m-%d)"
+          } >> "$GITHUB_OUTPUT"
+          echo "ArtCraft Launcher $version (prerelease: $prerelease)"
+
+  windows:
+    name: Windows x64
+    needs: [version]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.version.outputs.version }}
+      ARTCRAFT_LAUNCHER_BUILD_DATE: ${{ needs.version.outputs.date }}
+      ARTCRAFT_LAUNCHER_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-windows-x64
+      - name: Apply the version
+        shell: bash
+        run: cargo xtask version set "$ARTCRAFT_LAUNCHER_VERSION"
+      - name: Install WiX
+        shell: pwsh
+        run: |
+          # The version package.ps1 is written for (see its header).
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2
+      - name: Build and package (unsigned)
+        shell: pwsh
+        # No WINDOWS_CERTIFICATE or AZURE_* values: sign.ps1 warns and leaves the files unsigned.
+        run: ./packaging/windows/package.ps1 -Arch x64
+      - name: Add the plain .exe
+        shell: pwsh
+        run: |
+          # The same statically linked binary the MSI installs, for people who just want to run it.
+          # Without portable.txt beside it, it keeps its settings in %APPDATA% like an installed copy.
+          $exe = "target/x86_64-pc-windows-msvc/release/artcraft-launcher.exe"
+          Copy-Item $exe "dist/release/artcraft-launcher-$env:ARTCRAFT_LAUNCHER_VERSION-windows-x64.exe"
+          Get-ChildItem dist/release | Format-Table Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: dist/release/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS universal
+    needs: [version]
+    # A standard runner, not the paid macos-*-xlarge the suite's shared workflow uses.
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.version.outputs.version }}
+      ARTCRAFT_LAUNCHER_BUILD_DATE: ${{ needs.version.outputs.date }}
+      ARTCRAFT_LAUNCHER_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-macos-universal
+      - name: Apply the version
+        run: cargo xtask version set "$ARTCRAFT_LAUNCHER_VERSION"
+      - name: Build and package (ad-hoc signed, not notarized)
+        # No MACOS_SIGN_IDENTITY: package.sh signs ad-hoc and skips notarization.
+        run: packaging/macos/package.sh --arch universal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/release/*
+          if-no-files-found: error
+
+  linux-tarball:
+    name: Linux tarball ${{ matrix.arch }}
+    needs: [version]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # GitHub's Arm runners are free only for public repositories, so a private fork builds
+        # x86_64 alone.
+        include: ${{ fromJSON(github.event.repository.private && '[{"arch":"x86_64","runner":"ubuntu-22.04"}]' || '[{"arch":"x86_64","runner":"ubuntu-22.04"},{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]') }}
+    env:
+      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.version.outputs.version }}
+      ARTCRAFT_LAUNCHER_BUILD_DATE: ${{ needs.version.outputs.date }}
+      ARTCRAFT_LAUNCHER_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
+            libasound2-dev pkg-config desktop-file-utils appstream
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-linux-${{ matrix.arch }}
+      - name: Apply the version
+        run: cargo xtask version set "$ARTCRAFT_LAUNCHER_VERSION"
+      - name: Build the tarball the Flatpak is made from
+        # Built on Ubuntu 22.04 (glibc 2.35) so the binary runs on newer systems too.
+        run: packaging/linux/package.sh --formats tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-tarball-${{ matrix.arch }}
+          path: dist/release/*.tar.gz
+          if-no-files-found: error
+
+  flatpak:
+    name: Flatpak ${{ matrix.arch }}
+    needs: [version, linux-tarball]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(github.event.repository.private && '[{"arch":"x86_64","runner":"ubuntu-24.04"}]' || '[{"arch":"x86_64","runner":"ubuntu-24.04"},{"arch":"aarch64","runner":"ubuntu-24.04-arm"}]') }}
+    env:
+      ARTCRAFT_LAUNCHER_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-tarball-${{ matrix.arch }}
+          path: dist/linux
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update
+          # elfutils: flatpak-builder strips with eu-strip. librsvg2-common: the SVG loader
+          # `appstreamcli compose` needs for the icon.
+          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils librsvg2-common
+          # Ubuntu 24.04 blocks the unprivileged user namespaces flatpak-builder's sandbox needs.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Build and test the bundle (not GPG-signed)
+        run: packaging/linux/flatpak-bundle.sh "dist/linux/artcraft-launcher-$ARTCRAFT_LAUNCHER_VERSION-linux-${{ matrix.arch }}.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-flatpak-${{ matrix.arch }}
+          path: dist/release/*.flatpak
+          if-no-files-found: error
+
   release:
-    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
-    uses: storytold/craft-common-actions/.github/workflows/release.yml@main
-    with:
-      app-name: craft-launcher
-      app-title: ArtCraft Launcher
-      version: ${{ inputs.version }}
-    secrets:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
-      AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
-      AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
-      LINUX_SIGNING_KEY: ${{ secrets.LINUX_SIGNING_KEY }}
+    name: Draft GitHub Release
+    needs: [version, windows, macos, flatpak]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Release notes
+        run: |
+          cat > notes.md <<EOF
+          ArtCraft Launcher $VERSION, built by this fork's release workflow.
+
+          **These builds are not code-signed**, so your system will warn before the first launch.
+          Check a download against \`SHA256SUMS.txt\` if you want to be sure it is the file built here.
+
+          - **Windows** (\`.msi\` installer, \`-portable.zip\`, or the plain \`.exe\`): when SmartScreen says
+            "Windows protected your PC", choose **More info**, then **Run anyway**.
+          - **macOS** (\`.dmg\`, Apple silicon and Intel): drag the app to Applications, open it once, then go to
+            **System Settings > Privacy & Security** and choose **Open Anyway**. Or, in Terminal:
+            \`xattr -dr com.apple.quarantine "/Applications/ArtCraft Launcher.app"\`
+          - **Linux** (\`.flatpak\`): \`flatpak install --user ./artcraft-launcher-$VERSION-linux-<arch>.flatpak\`
+            (the freedesktop runtime comes from Flathub).
+
+          The launcher tells you when a newer release is out here and offers its download; it doesn't
+          replace itself, so install the new version the same way.
+          EOF
+      - name: Create or update the draft release
+        run: |
+          tag="v$VERSION"
+          flags=(--draft --title "ArtCraft Launcher $tag" --notes-file notes.md --target "$GITHUB_SHA")
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # A re-run replaces the files of the release it made before.
+            gh release upload "$tag" dist/* --clobber
+            gh release edit "$tag" --notes-file notes.md
+          else
+            gh release create "$tag" "${flags[@]}" dist/*
+          fi
+          gh release view "$tag" --json url,isDraft,assets --jq '{url, isDraft, assets: [.assets[].name]}'

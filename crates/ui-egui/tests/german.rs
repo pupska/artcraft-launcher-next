@@ -224,6 +224,8 @@ fn german_switches_persists_and_keeps_install_actions() {
 /// language is process-wide, so the German checks share a test.
 fn a_table_update_too_narrow_to_sit_side_by_side_stacks() {
     let (mut h, sent) = harness_language(ViewMode::Table, egui::Theme::Dark, true, "de", Vec::new());
+    // The table as wide as it was before the sidebar took its 224 px.
+    h.set_size(egui::vec2(1180.0 + 224.0, 1200.0));
     h.run_steps(8);
     let keep = "0.4.1 ohne Aktualisierung öffnen. 0.5.0 bleibt verfügbar.";
     let open = h.get_by_label(keep).rect();

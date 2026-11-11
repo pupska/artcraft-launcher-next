@@ -1,5 +1,5 @@
-//! The header, toolbar, footer, the grid of cards and the table, laid out like the apps page on
-//! getartcraft.com: hairline cells, mono labels and square controls.
+//! The title bar, the page heading and toolbar, the grid of cards and the table: rounded tiles
+//! and controls on the content panel, with the site's mono labels. The sidebar is `sidebar.rs`.
 
 use artcraft_launcher_core::catalog::AppKind;
 use artcraft_launcher_core::details::AppDetails;
@@ -148,10 +148,10 @@ const TABLE_ROW_H: f32 = 62.0;
 
 /// Height of the header bar (the site's nav).
 pub(crate) const HEADER_H: f32 = 48.0;
-/// Height of the footer bar.
-pub(crate) const FOOTER_H: f32 = 34.0;
 
 const CARD_MIN_W: f32 = 320.0;
+/// The gap between neighbouring cards.
+const CARD_GAP: f32 = 14.0;
 const CARD_H: f32 = 314.0;
 /// The app column's name and tagline sizes, to centre them on the icon.
 const TITLE_SIZE: f32 = 16.0;
@@ -159,11 +159,37 @@ const TAGLINE_SIZE: f32 = 12.0;
 /// The card's top strip: number tab and links.
 const STRIP_H: f32 = 40.0;
 const CARD_PAD: f32 = 20.0;
-/// Room macOS's traffic lights take at the left of the header.
-const TRAFFIC_LIGHTS_W: f32 = 72.0;
+
+/// Which of the table's optional columns fit: Author goes first when the window is narrow,
+/// then Released, so the app, its status, its version and its actions always show.
+#[derive(Clone, Copy, Debug)]
+struct TableCols {
+    released: bool,
+    author: bool,
+}
+
+impl TableCols {
+    const APP_MIN: f32 = 170.0;
+    const STATUS: f32 = 168.0;
+    const VERSION: f32 = 136.0;
+    const RELEASED: f32 = 132.0;
+    const AUTHOR: f32 = 100.0;
+    const ACTIONS: f32 = 206.0;
+    /// The table frame's side margins.
+    const FRAME: f32 = 32.0;
+
+    fn fitting(width: f32, gap: f32, grip_w: f32) -> Self {
+        let base = Self::FRAME + Self::APP_MIN + Self::STATUS + Self::VERSION + Self::ACTIONS + grip_w + 3.0 * gap;
+        let released = Self::RELEASED + gap;
+        let author = Self::AUTHOR + gap;
+        Self { released: base + released <= width, author: base + released + author <= width }
+    }
+}
 
 impl LauncherUi {
-    /// The header bar; with a custom or macOS title bar it is also the window's title bar.
+    /// The title bar over the content panel: the launcher's name and version, the suite's name
+    /// while there is room, and the window buttons with a custom title bar. The sidebar holds the
+    /// logo, so on macOS the traffic lights sit over the sidebar rather than here.
     pub(crate) fn header(&mut self, ui: &mut Ui, bar: TitleBar) {
         let t = Tokens::get(ui.ctx());
         let h = HEADER_H;
@@ -172,36 +198,39 @@ impl LauncherUi {
         }
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
-            if bar == TitleBar::MacOs {
-                ui.add_space(TRAFFIC_LIGHTS_W);
-            }
-            // The ArtCraft wordmark exactly as supplied, in its own cell.
-            let logo = vec2(14.0 * crate::icons::ARTCRAFT_LOGO_ASPECT, 14.0);
-            let (cell, _) = ui.allocate_exact_size(vec2(logo.x + 40.0, h), Sense::hover());
-            egui::Image::new(crate::icons::artcraft_logo(t.dark)).alt_text(tl!("ArtCraft")).paint_at(ui, Rect::from_center_size(cell.center(), logo));
+            ui.add_space(8.0);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if bar == TitleBar::Custom {
                     widgets::window_buttons(ui, h);
                 }
-                if widgets::nav_icon(ui, widgets::Glyph::Settings, tl!("Settings"), h, false).clicked() {
-                    self.dialog = Some(Dialog::Settings);
-                }
-                // The controls reserve their actual widths before the secondary text gets space.
+                // The controls reserve their actual widths before the title gets space.
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    if ui.available_width() >= 17.0 + widgets::hud_galley(ui, tl!("Craft App Suite"), t.muted).size().x {
-                        widgets::rule(ui, h);
+                    ui.label(RichText::new("Craft Launcher").family(theme::semibold()).size(13.5).color(t.ink_strong));
+                    ui.add_space(8.0);
+                    let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+                    ui.label(RichText::new(version).family(theme::mono()).size(11.0).color(t.faint));
+                    let suite = tl!("Craft App Suite");
+                    if ui.available_width() >= 33.0 + widgets::hud_galley(ui, suite, t.muted).size().x {
                         ui.add_space(16.0);
-                        widgets::hud(ui, tl!("Craft App Suite"), t.muted);
+                        widgets::rule(ui, 16.0);
+                        ui.add_space(16.0);
+                        widgets::hud(ui, suite, t.faint);
                     }
                 });
             });
         });
     }
 
-    pub(crate) fn toolbar(&mut self, ui: &mut Ui) {
-        if self.settings.filter == Filter::Hidden && self.settings.hidden.is_empty() {
-            self.settings.filter = Filter::All;
-        }
+    /// The page's heading: the page's name, with how many apps it shows.
+    fn page_heading(&mut self, ui: &mut Ui, t: &Tokens, shown: usize) {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(crate::sidebar::page_title(self.settings.filter)).family(theme::display()).size(24.0).color(t.ink_strong));
+            ui.add_space(4.0);
+            ui.label(RichText::new(shown.to_string()).family(theme::mono()).size(13.0).color(t.faint));
+        });
+    }
+
+    pub(crate) fn toolbar(&mut self, ui: &mut Ui, shown: usize) {
         let t = Tokens::get(ui.ctx());
         if self.dialog.is_none()
             && let Some(r) = self.launcher_update.clone()
@@ -210,6 +239,8 @@ impl LauncherUi {
             ui.add_space(14.0);
         }
         self.announcements(ui);
+        self.page_heading(ui, &t, shown);
+        ui.add_space(12.0);
         let updates = self.count(Filter::Updates);
         let compact = self.toolbar_row(ui, &t, updates);
         if compact {
@@ -286,25 +317,13 @@ impl LauncherUi {
         });
     }
 
-    /// The toolbar's main row: the refresh button, the hidden-apps toggle, the view switch, the
-    /// search field, and the sort picker / update-all button while there is room. Returns
+    /// The toolbar's main row: the refresh button, the view switch, the search field, and the
+    /// sort picker / update-all button while there is room. Returns
     /// whether the window is narrow enough that a second row follows.
     fn toolbar_row(&mut self, ui: &mut Ui, t: &Tokens, updates: usize) -> bool {
         let mut compact = false;
         ui.horizontal(|ui| {
             self.refresh_button(ui);
-            // Hiding an app is only undone from here, so the way back to the hidden ones stays
-            // while there are any: a toggle, lit while the hidden apps are what the page shows.
-            if !self.settings.hidden.is_empty() {
-                let showing = self.settings.filter == Filter::Hidden;
-                let label = format!("{} {}", tl!("Hidden Apps"), self.settings.hidden.len());
-                if widgets::button(ui, &label, if showing { Kind::Primary } else { Kind::Secondary }, 0.0)
-                    .on_hover_text(tl!("Apps you hid"))
-                    .clicked()
-                {
-                    self.settings.filter = if showing { Filter::All } else { Filter::Hidden };
-                }
-            }
             compact = ui.available_width() < theme::TOOLBAR_COMPACT_BELOW;
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 // Right to left: the view switch at the far right, then the search.
@@ -428,8 +447,9 @@ impl LauncherUi {
         }
     }
 
-    pub(crate) fn footer(&mut self, ui: &mut Ui) {
-        let t = Tokens::get(ui.ctx());
+    /// The sidebar's status: when the catalog was last checked and from where, and while GitHub
+    /// is rate limited, a notice in full and short.
+    pub(crate) fn status_texts(&self) -> (String, Option<(String, String)>) {
         let now = self.backend.now();
         let status = if self.checking {
             tl!("Checking for updates…").to_string()
@@ -442,63 +462,13 @@ impl LauncherUi {
         } else {
             tl!("Not checked yet").to_string()
         };
-        // The full notice, and a short one for a narrow window.
         let notice = self.rate_limited_until.filter(|u| *u > now).map(|until| {
             let min = ((until - now) / 60).max(1).to_string();
             let full = fmt(tl!("GitHub's hourly limit was reached; full details return in {min} min"), &[("min", &min)]);
             let short = fmt(tl!("GitHub limit hit; back in {min} min"), &[("min", &min)]);
-            (format!("· {full}"), format!("· {short}"))
+            (full, short)
         });
-        use artcraft_launcher_core::catalog::{GITHUB_URL, SOCIAL, WEBSITE_URL};
-        // Every link is an icon, reading Website, GitHub, Discord, then the social accounts.
-        let named =
-            |name: &'static str, label: &str, url: &'static str| widgets::IconLink { name, label: label.to_string(), tip: label.to_string(), url };
-        let mut links = vec![
-            named("Website", tl!("Website"), WEBSITE_URL),
-            named("GitHub", tl!("GitHub"), GITHUB_URL),
-            widgets::IconLink {
-                name: "Discord",
-                label: tl!("Discord").to_string(),
-                tip: tl!("Join the ArtCraft community on Discord").to_string(),
-                url: self.discord_url,
-            },
-        ];
-        links.extend(SOCIAL.iter().map(|(name, url)| widgets::IconLink {
-            name,
-            label: (*name).to_string(),
-            tip: fmt(tl!("ArtCraft on {name}"), &[("name", name)]),
-            url,
-        }));
-        let icon = 13.0;
-        let spacing = ui.spacing().item_spacing.x;
-        // The icons on the right keep their size; the status on the left gets what is left and
-        // is cut short with "…", never drawn under them.
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            widgets::icon_links(ui, icon, &links);
-            ui.add_space(8.0);
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                // While GitHub is rate limited, saying so matters more than when we last checked.
-                let avail = ui.available_width();
-                let text = |s: &str| RichText::new(s).size(12.0).color(t.warn);
-                let width = |ui: &Ui, s: &str| {
-                    egui::WidgetText::from(text(s)).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, egui::TextStyle::Body).size().x
-                        + spacing
-                };
-                // The short notice once the full one would leave the status under a third.
-                let notice = notice.map(|(full, short)| {
-                    let w = width(ui, &full);
-                    if w <= avail * 0.7 { (full, None, w) } else { (short.clone(), Some(full), width(ui, &short)) }
-                });
-                let notice_w = notice.as_ref().map_or(0.0, |(_, _, w)| *w);
-                widgets::hud_elided(ui, &status, t.faint, (avail - notice_w).max(avail * 0.3));
-                if let Some((shown, full, _)) = notice {
-                    let resp = ui.add(egui::Label::new(text(&shown)).truncate());
-                    if let Some(full) = full {
-                        resp.on_hover_text(full);
-                    }
-                }
-            });
-        });
+        (status, notice)
     }
 
     // ---- grid ----------------------------------------------------------------------------
@@ -534,15 +504,15 @@ impl LauncherUi {
             return;
         }
         let width = ui.available_width();
-        // Neighbouring cards share their 1 px hairline, like the site's `gap-px` grid.
-        let cols = ((width / CARD_MIN_W).floor() as usize).max(1);
-        let card_w = (width + (cols as f32 - 1.0)) / cols as f32;
+        // Each card is its own rounded tile, `CARD_GAP` from its neighbours.
+        let cols = (((width + CARD_GAP) / (CARD_MIN_W + CARD_GAP)).floor() as usize).max(1);
+        let card_w = (width - CARD_GAP * (cols as f32 - 1.0)) / cols as f32;
         let rows = ids.len().div_ceil(cols);
-        let height = rows as f32 * (CARD_H - 1.0) + 1.0;
+        let height = rows as f32 * (CARD_H + CARD_GAP) - CARD_GAP;
         let (area, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
         for (i, id) in ids.iter().enumerate() {
             let (row, col) = (i / cols, i % cols);
-            let min = area.min + vec2(col as f32 * (card_w - 1.0), row as f32 * (CARD_H - 1.0));
+            let min = area.min + vec2(col as f32 * (card_w + CARD_GAP), row as f32 * (CARD_H + CARD_GAP));
             self.card(ui, id, Rect::from_min_size(min, vec2(card_w, CARD_H)));
         }
     }
@@ -575,15 +545,16 @@ impl LauncherUi {
             }
         }
         let painter = ui.painter_at(rect.expand(16.0));
-        // A faint wash in the app's colour fades in under the pointer.
-        let fill = t.bg.lerp_to_gamma(app_color, 0.05 * lift);
-        painter.rect(rect, CornerRadius::ZERO, fill, t.hairline(), egui::StrokeKind::Inside);
-        // On hover, a 2 px rule in the app's colour wipes in from the left along the top, inside the
-        // hairlines the card shares with its neighbours (the site's rule sits within its grid gaps).
+        // A rounded tile on the page; under the pointer it lifts onto a soft shadow, a faint wash in
+        // the app's colour fades in, and its outline takes the app's colour.
+        let fill = t.raised.lerp_to_gamma(app_color, 0.06 * lift);
         if lift > 0.0 {
-            let inside = rect.shrink(1.0);
-            painter.rect_filled(Rect::from_min_size(inside.min, vec2(inside.width() * lift, 2.0)), CornerRadius::ZERO, app_color);
+            let mut shadow = theme::shadow(&t);
+            shadow.color = shadow.color.gamma_multiply(lift * 0.6);
+            painter.add(shadow.as_shape(rect, theme::card_r()));
         }
+        let outline = Stroke::new(1.0, t.line.lerp_to_gamma(app_color.gamma_multiply(0.7), lift));
+        painter.rect(rect, theme::card_r(), fill, outline, egui::StrokeKind::Inside);
 
         // The top strip: the version in the app's colour, and its GitHub page.
         let status = entry.status(self.platform, self.caps.manage_apps);
@@ -707,21 +678,30 @@ impl LauncherUi {
         let clip = ui.clip_rect();
         let span = ui.available_rect_before_wrap().x_range();
         let grip_w = self.grip_w(ui, ids);
+        let cols = TableCols::fitting(ui.available_width(), ui.spacing().item_spacing.x, grip_w);
 
-        egui::Frame::new().fill(t.bg).stroke(t.hairline()).inner_margin(egui::Margin::symmetric(16, 0)).show(ui, |ui| {
-            TableBuilder::new(ui)
-                .striped(false)
-                .vscroll(false)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::remainder().at_least(220.0).clip(true))
-                .column(Column::exact(176.0))
-                .column(Column::exact(150.0))
-                .column(Column::exact(132.0))
-                .column(Column::exact(104.0))
-                .column(Column::exact(206.0 + grip_w))
-                .header(42.0, |header| self.table_header(header, &mut sort_clicked, &t, span, clip))
-                .body(|body| self.table_rows(body, ids, &t, (title_h, tagline_h), now, (span, clip)));
-        });
+        egui::Frame::new().fill(t.raised).stroke(t.hairline()).corner_radius(theme::card_r()).inner_margin(egui::Margin::symmetric(16, 0)).show(
+            ui,
+            |ui| {
+                let mut table = TableBuilder::new(ui)
+                    .striped(false)
+                    .vscroll(false)
+                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                    .column(Column::remainder().at_least(TableCols::APP_MIN).clip(true))
+                    .column(Column::exact(TableCols::STATUS))
+                    .column(Column::exact(TableCols::VERSION));
+                if cols.released {
+                    table = table.column(Column::exact(TableCols::RELEASED));
+                }
+                if cols.author {
+                    table = table.column(Column::exact(TableCols::AUTHOR));
+                }
+                table
+                    .column(Column::exact(TableCols::ACTIONS + grip_w))
+                    .header(42.0, |header| self.table_header(header, cols, &mut sort_clicked, &t, span, clip))
+                    .body(|body| self.table_rows(body, (ids, cols), &t, (title_h, tagline_h), now, (span, clip)));
+            },
+        );
         if let Some(k) = sort_clicked {
             if self.settings.sort == k {
                 self.settings.sort_descending = !self.settings.sort_descending;
@@ -790,19 +770,23 @@ impl LauncherUi {
     fn table_header(
         &self,
         mut header: egui_extras::TableRow<'_, '_>,
+        cols: TableCols,
         sort_clicked: &mut Option<SortKey>,
         t: &Tokens,
         span: egui::emath::Rangef,
         clip: egui::Rect,
     ) {
-        for (key, label) in [
-            (Some(SortKey::Name), tl!("App")),
-            (Some(SortKey::Status), tl!("Status")),
-            (None, tr_ctx(current(), "column", "Version")),
-            (Some(SortKey::Released), tr_ctx(current(), "column", "Released")),
-            (None, tr_ctx(current(), "column", "Author")),
-            (None, ""),
+        for (key, label, shown) in [
+            (Some(SortKey::Name), tl!("App"), true),
+            (Some(SortKey::Status), tl!("Status"), true),
+            (None, tr_ctx(current(), "column", "Version"), true),
+            (Some(SortKey::Released), tr_ctx(current(), "column", "Released"), cols.released),
+            (None, tr_ctx(current(), "column", "Author"), cols.author),
+            (None, "", true),
         ] {
+            if !shown {
+                continue;
+            }
             header.col(|ui| {
                 if key == Some(SortKey::Name) {
                     Self::table_rule(ui, t, span, clip);
@@ -815,11 +799,11 @@ impl LauncherUi {
     }
 
     /// The table's one row per app: the app (click to open its page), its status, the version,
-    /// when it was released, who makes it, and its actions.
+    /// when it was released (where that column fits), who makes it (likewise), and its actions.
     fn table_rows(
         &mut self,
         mut body: egui_extras::TableBody<'_>,
-        ids: &[&'static str],
+        (ids, cols): (&[&'static str], TableCols),
         t: &Tokens,
         fonts: (f32, f32),
         now: i64,
@@ -835,10 +819,14 @@ impl LauncherUi {
                 row.col(|ui| self.table_app_cell(ui, &entry, id, i < last, t, (fonts.0, fonts.1, rule.0, rule.1)));
                 row.col(|ui| self.table_status_cell(ui, &entry, &status, t));
                 row.col(|ui| self.table_version_cell(ui, &entry, &status, t));
-                row.col(|ui| self.table_released_cell(ui, &entry, now, t));
-                row.col(|ui| {
-                    ui.label(RichText::new(entry.app.publisher).color(t.muted));
-                });
+                if cols.released {
+                    row.col(|ui| self.table_released_cell(ui, &entry, now, t));
+                }
+                if cols.author {
+                    row.col(|ui| {
+                        ui.label(RichText::new(entry.app.publisher).color(t.muted));
+                    });
+                }
                 // A pinned row's grip leads its actions; the other rows leave its room empty, so
                 // every row's buttons stay in line.
                 row.col(|ui| {

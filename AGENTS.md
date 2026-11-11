@@ -63,8 +63,9 @@ wasm-bindgen). **No Tauri, Electron or webview shells**, ever.
 The product name is always **ArtCraft Launcher** in user-facing text: UI, window titles, About,
 tray menu, notifications, installers, release names, docs prose. The suite is the **Craft App
 Suite**. Machine names stay lowercase: crates and binaries (`artcraft-launcher`,
-`artcraft-launcher-*`), file names, and the app id `ai.storyteller.artcraft-launcher`. Note the
-GitHub repo is `storytold/craft-launcher`, while every file and package is `artcraft-launcher-*`.
+`artcraft-launcher-*`), file names, and the app id `ai.storyteller.artcraft-launcher`. This
+repository is a fork: upstream is `storytold/craft-launcher`, this fork is
+`pupska/artcraft-launcher-next`, and every file and package is `artcraft-launcher-*` in both.
 
 ## 1. Workspace map
 
@@ -135,10 +136,28 @@ settings file must produce an error the user can act on, never a panic.
 
 ### Look and feel
 
-The UI matches the apps page on getartcraft.com (`artcraft-website-next` in `artcraft-services`):
-hard square corners, 1 px hairlines instead of shadows, Archivo (620, 118 % width) for headings
-and app names, Inter for body text, upper-case Geist Mono labels and buttons, and the site's
-colour tokens by name (`theme::Tokens`). Build new UI from `widgets.rs`; never hard-code a colour.
+This fork has its own look: rounded and modern, laid out as a sidebar, a title bar and a content
+panel. It keeps the site's type and colours but not its hard square corners.
+
+- **Layout.** The sidebar (`sidebar.rs`) runs the window's full height: the logo on the title
+  bar's row (beside the traffic lights on macOS), the pages (Installed, Store, Updates, and Hidden
+  Apps while any app is hidden), then Settings, the last check and the community links at its
+  foot. The title bar (`views::header`) holds the name, the version and the window buttons. The
+  page itself sits on a rounded content panel inset into that chrome (`LauncherUi::ui`). A page
+  is a `settings::Filter`; a build that can't manage apps (the web) shows only the Store.
+- **Corners.** Everything is rounded, from one scale in `theme.rs`: `CONTROL_RADIUS` (8) for
+  buttons, inputs and toggles, `CARD_RADIUS` (12) for cards, the table and boxes, `SHEET_RADIUS`
+  (16) for dialogs and the app page, `BADGE_RADIUS` (5) for badges. Use `theme::control_r()` and
+  its siblings, never `CornerRadius::ZERO` for a surface or control. Joined controls round only
+  their outer corners (a split button's halves); a header band at the top of a rounded frame uses
+  `theme::top_only`.
+- **Surfaces.** `Tokens::chrome` for the sidebar and title bar, `Tokens::bg` for the content
+  panel, `Tokens::raised` for cards and the table. Cards are separate tiles with gaps, outlined
+  with a 1 px hairline; a hovered card lifts onto a soft shadow (`theme::shadow`) and its outline
+  takes the app's colour.
+- **Type.** Archivo (620, 118 % width) for headings and app names, Inter for body text,
+  upper-case Geist Mono for labels and buttons, and the colour tokens by name (`theme::Tokens`).
+  Build new UI from `widgets.rs`; never hard-code a colour.
 
 Animations follow the OS: with Windows' "Animation effects" off, macOS' "Reduce motion" on, a Linux
 desktop's animations off or a browser's `prefers-reduced-motion`, nothing fades, wipes or glides
@@ -189,11 +208,40 @@ packaging/linux/AppRun` and `actionlint`.
 ## 4. Releasing
 
 The version lives only in `[workspace.package] version` in the root `Cargo.toml`
-(`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing to the `release` branch runs
-`.github/workflows/release.yml`, which builds every platform and creates the draft GitHub Release
-**ArtCraft Launcher v<version>** with `SHA256SUMS.txt`.
+(`cargo xtask version`, `cargo xtask version set X.Y.Z[-pre]`). Pushing to the `release` branch
+(or running it from the Actions tab, with an optional version override) runs
+`.github/workflows/release.yml`, which creates the draft GitHub Release **ArtCraft Launcher
+v<version>** with `SHA256SUMS.txt`.
 
-Release assets (keep these names exact; the launcher's own self-update and the README rely on them):
+**This fork releases without signing credentials**, on GitHub's standard runners only. Its
+`release.yml` is self-contained instead of calling the suite's shared release workflow, which
+stops when the Apple and Windows signing secrets are missing and builds macOS on a paid larger
+runner. It builds:
+
+| Platform | Files |
+|---|---|
+| Windows | `artcraft-launcher-<ver>-windows-x64.msi`, `…-windows-x64-portable.zip`, `…-windows-x64.exe` (the bare binary) |
+| macOS | `artcraft-launcher-<ver>-macos-universal.dmg` |
+| Linux | `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.flatpak` (x86_64 only while the repository is private: GitHub's Arm runners are free for public repositories only) |
+
+**Fork builds don't update themselves in place.** The launcher checks this fork's own releases
+(`catalog::LAUNCHER_REPO`), always on GitHub: ArtCraft's release feed speaks for upstream's
+launcher, so the launcher skips it for itself (`backend::latest_for`). When a newer release is out,
+the banner offers its download for this platform instead of "Update and restart"
+(`self_update::UPDATES_IN_PLACE` is off): `craft_update` installs only updates from
+`storytold/craft-launcher` signed like the running copy or by ArtCraft's Apple team, so an unsigned
+fork build can't replace itself, and a macOS fork build would otherwise take upstream's signed DMG.
+
+The packaging scripts already handle missing credentials, and the workflow relies on that:
+`packaging/windows/sign.ps1` leaves the files unsigned, `packaging/macos/package.sh` signs ad-hoc
+without notarizing, and the Flatpak bundle is not GPG-signed. Keep those fallbacks working. The
+release notes tell people how to open unsigned builds (SmartScreen's "Run anyway", macOS' "Open
+Anyway"). To sign later, set the secrets the scripts read (`WINDOWS_CERTIFICATE` or `AZURE_*`;
+`MACOS_SIGN_IDENTITY` through `packaging/macos/import-cert.sh` plus `APPLE_ID`, `APPLE_PASSWORD`,
+`APPLE_TEAM_ID`) and pass them to those steps.
+
+The full set upstream's shared workflow builds (keep these names exact; the launcher's own
+self-update and the README rely on them):
 
 | Platform | Files |
 |---|---|
@@ -241,6 +289,9 @@ Packaging facts the code relies on:
 - If someone else's in-progress edit breaks the build, wait and retry; don't fix their files.
 
 ## CI workflows
+- **Fork exception:** `release.yml` runs its own jobs (see "Releasing") because the shared release
+  workflow can't run here without signing secrets. Keep it self-contained, unsigned-capable and
+  on standard runners. Every other workflow still calls the shared ones.
 - Workflows in `.github/workflows/` call the shared workflows in [`storytold/craft-common-actions`](https://github.com/storytold/craft-common-actions) at `@main`, with their inputs and secrets. No other jobs: if no shared workflow does what's needed, it doesn't go here.
 - Don't add or change CI in a feature or fix PR. If the existing workflows can't build or test a change, link an existing craft-common-actions issue or PR, or open a new issue, or a PR only for a small fix that is safe for every app and does not increase CI time.
 - Some workflow files here still run their own jobs. Don't add to them. Moving a job into craft-common-actions is its own task, never part of another PR, and the job stays here until a shared workflow runs it.
