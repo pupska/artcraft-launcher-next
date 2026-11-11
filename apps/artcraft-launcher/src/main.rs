@@ -1140,7 +1140,13 @@ mod tests {
         let (mut launcher, _show, _) = launcher();
         // `start` also creates a native tray, which macOS requires on the main thread.
         for (filter, expected) in
-            [(Filter::Installed, Filter::All), (Filter::Updates, Filter::All), (Filter::NotInstalled, Filter::All), (Filter::Hidden, Filter::Hidden)]
+            // Installed and Updates are sidebar pages and are kept; Not installed is part of the Store.
+            [
+                (Filter::Installed, Filter::Installed),
+                (Filter::Updates, Filter::Updates),
+                (Filter::NotInstalled, Filter::All),
+                (Filter::Hidden, Filter::Hidden),
+            ]
         {
             launcher.restore_saved_settings(Settings { filter, last_check: Some(NOW), ..Settings::default() });
             assert_eq!(launcher.ui.settings.filter, expected, "{filter:?}");
