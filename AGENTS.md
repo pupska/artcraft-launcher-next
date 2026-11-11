@@ -142,7 +142,11 @@ panel. It keeps the site's type and colours but not its hard square corners.
 - **Layout.** The sidebar (`sidebar.rs`) runs the window's full height: the logo on the title
   bar's row (beside the traffic lights on macOS), the pages (Installed, Store, Updates, and Hidden
   Apps while any app is hidden), then Settings, the last check and the community links at its
-  foot. The title bar (`views::header`) holds the name, the version and the window buttons. The
+  foot. It folds down to its icons (`SIDEBAR_W` 224 to `SIDEBAR_COLLAPSED_W` 64) with the toggle
+  at the left of the title bar, saved as `Settings::sidebar_collapsed`, sliding between the two
+  over `COLLAPSE_TIME` (instantly with reduced motion; `LauncherUi::sidebar_folded`). Folded, a
+  page's name is its tooltip and the update count is a badge on its icon. The title bar
+  (`views::header`) holds the toggle, the name, the version and the window buttons. The
   page itself sits on a rounded content panel inset into that chrome (`LauncherUi::ui`). A page
   is a `settings::Filter`; a build that can't manage apps (the web) shows only the Store.
 - **Corners.** Everything is rounded, from one scale in `theme.rs`: `CONTROL_RADIUS` (8) for

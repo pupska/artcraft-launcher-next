@@ -129,6 +129,8 @@ pub struct Settings {
     pub hide_community_apps: bool,
     /// Catalog ids of apps hidden from the main lists (`photocraft`, …).
     pub hidden: std::collections::BTreeSet<String>,
+    /// The sidebar is folded down to its icons (the toggle at the left of the title bar).
+    pub sidebar_collapsed: bool,
     /// The one-time notice that closing the window keeps the launcher in the tray has been shown.
     pub tray_hint_shown: bool,
     /// How many times each app was opened from the launcher (catalog id → count), for "Frequently used".
@@ -270,6 +272,7 @@ impl Default for Settings {
             last_check: None,
             hide_community_apps: false,
             hidden: std::collections::BTreeSet::new(),
+            sidebar_collapsed: false,
             tray_hint_shown: false,
             launches: BTreeMap::new(),
             pinned: Vec::new(),

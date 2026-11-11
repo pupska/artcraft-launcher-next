@@ -187,10 +187,11 @@ impl TableCols {
 }
 
 impl LauncherUi {
-    /// The title bar over the content panel: the launcher's name and version, the suite's name
-    /// while there is room, and the window buttons with a custom title bar. The sidebar holds the
-    /// logo, so on macOS the traffic lights sit over the sidebar rather than here.
-    pub(crate) fn header(&mut self, ui: &mut Ui, bar: TitleBar) {
+    /// The title bar over the content panel: the sidebar's toggle, the launcher's name and
+    /// version, the suite's name while there is room, and the window buttons with a custom title
+    /// bar. The sidebar holds the logo, so on macOS the traffic lights sit over the sidebar; once
+    /// the sidebar (`sidebar_w` wide) is narrower than they are, the title bar leaves them the rest.
+    pub(crate) fn header(&mut self, ui: &mut Ui, bar: TitleBar, sidebar_w: f32) {
         let t = Tokens::get(ui.ctx());
         let h = HEADER_H;
         if bar != TitleBar::Native {
@@ -198,6 +199,11 @@ impl LauncherUi {
         }
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
+            let lights = if bar == TitleBar::MacOs { (crate::sidebar::TRAFFIC_LIGHTS_W - sidebar_w).max(0.0) } else { 0.0 };
+            ui.add_space(4.0 + lights);
+            if crate::sidebar::sidebar_toggle(ui, &t, self.settings.sidebar_collapsed, h).clicked() {
+                self.settings.sidebar_collapsed = !self.settings.sidebar_collapsed;
+            }
             ui.add_space(8.0);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if bar == TitleBar::Custom {

@@ -861,18 +861,21 @@ impl LauncherUi {
         // panel inset into them.
         let bar = host.title_bar();
         self.settle_page();
+        // The sidebar slides between its open width and its icons (the toggle in the title bar).
+        let folded = self.sidebar_folded(&ctx);
+        let sidebar_w = egui::lerp(crate::sidebar::SIDEBAR_W..=crate::sidebar::SIDEBAR_COLLAPSED_W, folded).round();
         egui::Panel::left("sidebar")
             .frame(egui::Frame::new().fill(tokens.chrome))
-            .exact_size(crate::sidebar::SIDEBAR_W)
+            .exact_size(sidebar_w)
             .resizable(false)
             .show_separator_line(false)
-            .show(ui, |ui| self.sidebar(ui, bar));
+            .show(ui, |ui| self.sidebar(ui, bar, folded));
         egui::Panel::top("header")
             .frame(egui::Frame::new().fill(tokens.chrome))
             .exact_size(crate::views::HEADER_H)
             .resizable(false)
             .show_separator_line(false)
-            .show(ui, |ui| self.header(ui, bar));
+            .show(ui, |ui| self.header(ui, bar, sidebar_w));
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(tokens.chrome).inner_margin(egui::Margin { left: 0, right: CONTENT_INSET, top: 0, bottom: CONTENT_INSET }))
             .show(ui, |ui| {
