@@ -4365,3 +4365,20 @@ fn the_web_sidebar_has_only_the_store() {
     assert!(h.query_by_label_contains("Updates").is_none());
     snapshot(&mut h, "page-web-store-dark");
 }
+
+#[test]
+/// The README's two screenshots (`docs/screenshots/`), at their size there: the Store as cards in
+/// the dark theme and as a table in the light one. Regenerate them with
+/// `ARTCRAFT_LAUNCHER_SNAPSHOTS=$PWD/docs/screenshots cargo test -p artcraft-launcher-ui-egui --test ui -- readme_screenshots`
+/// from the repository root (tests run in the crate's folder, so the path must be absolute).
+fn readme_screenshots() {
+    for (view, theme, name) in
+        [(ViewMode::Grid, egui::Theme::Dark, "artcraft-launcher-grid"), (ViewMode::Table, egui::Theme::Light, "artcraft-launcher-table")]
+    {
+        let (mut h, _) = harness(view, theme, true);
+        h.set_size(egui::vec2(1180.0, 900.0));
+        h.run_steps(8);
+        h.get_by_role_and_label(egui::accesskit::Role::Tab, "Store");
+        snapshot(&mut h, name);
+    }
+}
