@@ -46,7 +46,7 @@ jobs:
       prerelease: ${{ steps.v.outputs.prerelease }}
       date: ${{ steps.v.outputs.date }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: v
         name: Resolve the version
         env:
@@ -79,7 +79,7 @@ jobs:
       ARTCRAFT_LAUNCHER_BUILD_DATE: ${{ needs.version.outputs.date }}
       ARTCRAFT_LAUNCHER_BUILD_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
@@ -107,7 +107,7 @@ jobs:
           $exe = "target/x86_64-pc-windows-msvc/release/artcraft-launcher.exe"
           Copy-Item $exe "dist/release/artcraft-launcher-$env:ARTCRAFT_LAUNCHER_VERSION-windows-x64.exe"
           Get-ChildItem dist/release | Format-Table Name, Length
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-windows-x64
           path: dist/release/*
@@ -124,7 +124,7 @@ jobs:
       ARTCRAFT_LAUNCHER_BUILD_DATE: ${{ needs.version.outputs.date }}
       ARTCRAFT_LAUNCHER_BUILD_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
@@ -136,7 +136,7 @@ jobs:
       - name: Build and package (ad-hoc signed, not notarized)
         # No MACOS_SIGN_IDENTITY: package.sh signs ad-hoc and skips notarization.
         run: packaging/macos/package.sh --arch universal
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-macos
           path: dist/release/*
@@ -158,7 +158,7 @@ jobs:
       ARTCRAFT_LAUNCHER_BUILD_DATE: ${{ needs.version.outputs.date }}
       ARTCRAFT_LAUNCHER_BUILD_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -174,7 +174,7 @@ jobs:
       - name: Build the tarball the Flatpak is made from
         # Built on Ubuntu 22.04 (glibc 2.35) so the binary runs on newer systems too.
         run: packaging/linux/package.sh --formats tar
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-tarball-${{ matrix.arch }}
           path: dist/release/*.tar.gz
@@ -192,8 +192,8 @@ jobs:
     env:
       ARTCRAFT_LAUNCHER_VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: linux-tarball-${{ matrix.arch }}
           path: dist/linux
@@ -207,7 +207,7 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Build and test the bundle (not GPG-signed)
         run: packaging/linux/flatpak-bundle.sh "dist/linux/artcraft-launcher-$ARTCRAFT_LAUNCHER_VERSION-linux-${{ matrix.arch }}.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-flatpak-${{ matrix.arch }}
           path: dist/release/*.flatpak
@@ -226,7 +226,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist
