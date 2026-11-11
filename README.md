@@ -13,6 +13,8 @@
 
 <h1 align="center">ArtCraft Launcher</h1>
 
+<p align="center"><i>A community fork of <a href="https://github.com/storytold/craft-launcher">ArtCraft Launcher</a>, with a redesigned interface.</i></p>
+
 <p align="center">
   <b>One place to install, update and open every app in the Craft App Suite, rebuilt in pure Rust.</b><br>
   PhotoCraft, LightCraft, FilmCraft, DesignCraft, VectorCraft, PdfCraft, EffectCraft, AniCraft, WordCraft,<br>
@@ -24,40 +26,43 @@
   <img alt="macOS · Windows · Linux · FreeBSD · Web" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20FreeBSD%20%C2%B7%20Web-native-26282e?style=flat-square">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
   <img alt="Status: early alpha" src="https://img.shields.io/badge/status-early%20alpha-d69e2e?style=flat-square">
-  <br>
-  <a href="https://sonarcloud.io/project/overview?id=storytold_craft-launcher"><img alt="Scanned by SonarCloud" src="https://img.shields.io/badge/Scanned_by-SonarCloud-4b9fd5?style=flat-square&logo=sonarqubecloud&logoColor=white"></a>
-  <a href="https://coderabbit.ai"><img alt="Reviewed by CodeRabbit" src="https://img.shields.io/coderabbit/prs/github/storytold/craft-launcher?style=flat-square&label=Reviewed%20by%20CodeRabbit&logo=coderabbit"></a>
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/storytold/craft-launcher/releases/latest"><b>Download ArtCraft Launcher</b></a> ·
-  <a href="https://getartcraft.com/">ArtCraft</a> ·
+  <a href="https://github.com/pupska/artcraft-launcher-next/releases/latest"><b>Download this fork</b></a> ·
+  <a href="https://github.com/storytold/craft-launcher">Upstream ArtCraft Launcher</a> ·
   <a href="https://getartcraft.com/apps">The Craft App Suite</a>
 </p>
 
 > [!NOTE]
-> **ArtCraft is a community of artists from all walks of life.** Painters, photographers,
-> filmmakers, illustrators, designers, animators, hobbyists, and people who picked up a pencil
-> last week. If you make things, you're one of us. **[Come say hi on Discord](https://discord.gg/artcraft).**
+> **This is a fork, not the official ArtCraft Launcher.** It is based on
+> [storytold/craft-launcher](https://github.com/storytold/craft-launcher) by the ArtCraft team, but
+> it isn't made, sponsored or endorsed by them. What's different here:
+>
+> - **A redesigned interface:** a sidebar with Installed, Store and Updates pages, a title bar, and
+>   rounded cards and controls on an inset content panel.
+> - **Unsigned builds:** this fork's releases aren't code-signed, so Windows and macOS warn before
+>   the first launch (see [Downloads](#downloads)). For signed builds, use
+>   [upstream's releases](https://github.com/storytold/craft-launcher/releases/latest).
+> - **Its own updates:** the launcher checks this fork's releases and offers each new version as a
+>   download, rather than updating itself in place.
+>
+> Report problems with this fork in [this repo's issues](https://github.com/pupska/artcraft-launcher-next/issues),
+> not upstream's.
 
 <p align="center">
   <a href="#what-it-does">What it does</a> ·
   <a href="#features">Features</a> ·
   <a href="#downloads">Downloads</a> ·
   <a href="#build-from-source">Build from source</a> ·
-  <a href="#the-craft-app-suite">Craft App Suite</a> ·
-  <a href="https://discord.gg/artcraft">Discord</a>
+  <a href="#the-craft-app-suite">Craft App Suite</a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/artcraft-launcher-grid.png" alt="ArtCraft Launcher on macOS in the grid view (dark theme): a card for each Craft App with its icon, status, version, release date and an Install or Open button" width="900">
+  <img src="docs/screenshots/artcraft-launcher-grid.png" alt="ArtCraft Launcher's Store page in the grid view (dark theme): the sidebar with the Installed, Store and Updates pages on the left, and a rounded card for each Craft App with its icon, status, version, release date and an Install or Open button" width="900">
 </p>
 <p align="center">
-  <img src="docs/screenshots/artcraft-launcher-table.png" alt="The same apps in the table view (light theme), with columns for each app's status, installed and latest versions, and release date" width="900"><br>
+  <img src="docs/screenshots/artcraft-launcher-table.png" alt="The same Store page in the table view (light theme), with columns for each app's status, installed and latest versions, and release date" width="900"><br>
   <sub>Switch between the grid and a sortable table.</sub>
 </p>
 
@@ -67,6 +72,11 @@ The Craft apps each ship their own builds for every platform. ArtCraft Launcher 
 hunting through a dozen release pages: it lists every app in the suite, shows which ones you have
 and which version, installs the right build for your operating system and processor, and tells
 you when an update is out. It is a small native app that can sit in your menu bar or system tray.
+
+The sidebar splits the catalog into pages: **Installed** (the apps on this computer), **Store**
+(every app in the suite) and **Updates** (the ones with a newer version waiting, with a count).
+Apps you hide get a **Hidden Apps** page until you bring them back. Each page shows its apps as
+cards or as a sortable table.
 
 ## Features
 
@@ -131,9 +141,10 @@ installed by hand (and the launcher finds apps you installed yourself):
 | Linux, inside the launcher's Flatpak, with no Flatpak on the host | `~/.var/app/ai.storyteller.artcraft-launcher/data/artcraft-launcher/apps/<app>` | The release tarball, unpacked into the launcher's own folder and run inside the same sandbox, with its settings in a `home/` folder beside it. Nothing is installed on the host, and each app's configuration stays in the sandbox |
 | FreeBSD | `/usr/local` | The release tree, with a password prompt (polkit); `~/.local` when polkit isn't installed |
 
-ArtCraft Launcher keeps itself current too: when a new version is out, **Update and restart**
-downloads it, verifies it, puts it where this copy is installed (the `.app`, the Windows Installer
-package or portable folder, the AppImage, or the `.deb`/`.rpm`) and reopens it.
+When a new version of this fork is out, the launcher says so and offers its download for your
+system (the `.msi`, the `.dmg` or the `.flatpak`). Install it the same way you installed this one:
+fork builds are unsigned, so they don't replace themselves in place the way upstream's signed
+builds do.
 
 Updates use the same format an app was installed with. Every download is checked against the
 release's published SHA-256 before it is installed, and a running app is never replaced.
@@ -146,54 +157,51 @@ portable zip's executable) and keeps the previous two runs as `artcraft-launcher
 
 ## Downloads
 
-Download the build for your computer from the [latest release](https://github.com/storytold/craft-launcher/releases/latest), or browse [all releases](https://github.com/storytold/craft-launcher/releases). Every release has a `SHA256SUMS.txt` to check the files against. `<ver>` is the version number, for example `0.1.0`.
+Download the build for your computer from this fork's
+[latest release](https://github.com/pupska/artcraft-launcher-next/releases/latest), or browse
+[all releases](https://github.com/pupska/artcraft-launcher-next/releases). Every release has a
+`SHA256SUMS.txt` to check a download against. `<ver>` is the version number, for example `0.14.0`.
 
-**Windows** (10 and 11)
+> [!WARNING]
+> **These builds aren't code-signed.** Your system will warn you the first time you open one; the
+> steps below get past it. If you'd rather have signed builds, or a format this fork doesn't build
+> (AppImage, `.deb`, `.rpm`, Windows on Arm, FreeBSD, the web version), use
+> [upstream's releases](https://github.com/storytold/craft-launcher/releases/latest).
+
+**Windows** (10 and 11, 64-bit Intel and AMD)
 
 | File | What it is |
 |---|---|
-| `artcraft-launcher-<ver>-windows-x64.msi` | Installer for most PCs (Intel and AMD, 64-bit). Installs for the current user, no admin rights needed |
-| `artcraft-launcher-<ver>-windows-arm64.msi` | Installer for Windows on Arm (Snapdragon and other Arm PCs) |
-| `artcraft-launcher-<ver>-windows-x86.msi` | Installer for 32-bit Windows |
-| `artcraft-launcher-<ver>-windows-{x64,arm64,x86}-portable.zip` | No install: unzip and run `artcraft-launcher.exe`. Keeps its settings in the folder |
+| `artcraft-launcher-<ver>-windows-x64.msi` | Installer. Installs for the current user, no admin rights needed |
+| `artcraft-launcher-<ver>-windows-x64-portable.zip` | No install: unzip and run `artcraft-launcher.exe`. Keeps its settings in the folder |
+| `artcraft-launcher-<ver>-windows-x64.exe` | The program on its own: download and run. Keeps its settings in `%LOCALAPPDATA%` |
+
+When SmartScreen says **"Windows protected your PC"**, choose **More info**, then **Run anyway**.
 
 **macOS** (11 Big Sur or later)
 
 | File | What it is |
 |---|---|
-| `artcraft-launcher-<ver>-macos-universal.dmg` | Universal app for Apple silicon and Intel Macs, signed and notarized. Drag ArtCraft Launcher to Applications |
+| `artcraft-launcher-<ver>-macos-universal.dmg` | Universal app for Apple silicon and Intel Macs. Drag ArtCraft Launcher to Applications |
 
-**Linux** (x86_64 and aarch64; glibc 2.35 or newer, e.g. Ubuntu 22.04+, Debian 12+, Fedora 36+)
-
-| File | What it is |
-|---|---|
-| `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.AppImage` | Runs on almost any distro without installing; `chmod +x` and run. The `.AppImage.zsync` beside it lets AppImageUpdate fetch only what changed |
-| `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.deb` | Debian, Ubuntu, Mint, Pop!_OS: `sudo apt install ./artcraft-launcher-…deb` |
-| `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.rpm` | Fedora, openSUSE, RHEL: `sudo dnf install ./artcraft-launcher-…rpm` |
-| `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.flatpak` | Flatpak bundle: `flatpak install --user artcraft-launcher-…flatpak`. Inside the sandbox the launcher installs apps as Flatpaks on the host through `flatpak-spawn --host`; where the host has no Flatpak it falls back to each app's release tarball, unpacked and run inside the sandbox with the app's settings kept in it. Either way it can only reach the host as far as that permission allows; the AppImage, .deb and .rpm builds are the recommended way to run the launcher on Linux |
-| `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.tar.gz` | Plain tree (`bin/`, `share/`) for everyone else and for scripts |
-
-RISC-V (riscv64): `artcraft-launcher-<ver>-linux-riscv64.{deb,rpm,tar.gz}`, built against Ubuntu 24.04 (needs glibc 2.39+).
-
-The tray icon uses the StatusNotifierItem standard: KDE, Xfce, Cinnamon and most other desktops show it; on GNOME install the AppIndicator extension.
-
-**FreeBSD** (14, x86_64)
-
-| File | What it is |
-|---|---|
-| `artcraft-launcher-<ver>-freebsd-x86_64.tar.gz` | A tree laid out like `/usr/local` |
+The app is ad-hoc signed and not notarized, so macOS blocks the first launch. Open it once, then go
+to **System Settings → Privacy & Security** and choose **Open Anyway**. Or, in Terminal:
 
 ```sh
-pkg install libxkbcommon wayland libX11 libXcursor libXrandr libXi libxcb mesa-libs vulkan-loader fontconfig freetype2
-tar -xzf artcraft-launcher-<ver>-freebsd-x86_64.tar.gz --strip-components 1 -C /usr/local
-artcraft-launcher
+xattr -dr com.apple.quarantine "/Applications/ArtCraft Launcher.app"
 ```
 
-**Web (WebAssembly)**
+**Linux** (x86_64, and aarch64 while this repo is public)
 
 | File | What it is |
 |---|---|
-| `artcraft-launcher-web-<ver>.zip` | The catalog as a static site you can host anywhere; see [`packaging/web/README.md`](packaging/web/README.md) |
+| `artcraft-launcher-<ver>-linux-{x86_64,aarch64}.flatpak` | Flatpak bundle: `flatpak install --user ./artcraft-launcher-…flatpak` (the freedesktop runtime comes from Flathub). Inside the sandbox the launcher installs apps as Flatpaks on the host through `flatpak-spawn --host` |
+
+The tray icon uses the StatusNotifierItem standard: KDE, Xfce, Cinnamon and most other desktops
+show it; on GNOME install the AppIndicator extension.
+
+Other platforms and formats (AppImage, `.deb`, `.rpm`, FreeBSD, the web version) can be built from
+this repo's source; see below.
 
 ## Build from source
 
@@ -201,8 +209,8 @@ You need a recent stable Rust (1.90 or newer). On Linux, install the windowing h
 (Debian/Ubuntu: `sudo apt install libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev`).
 
 ```sh
-git clone https://github.com/storytold/craft-launcher
-cd craft-launcher
+git clone https://github.com/pupska/artcraft-launcher-next
+cd artcraft-launcher-next
 cargo run --release -p artcraft-launcher   # the desktop app
 cargo xtask ci                             # fmt, clippy, tests and the wasm check
 ```
@@ -219,16 +227,16 @@ cd apps/artcraft-launcher-web && trunk serve
 `flake.nix` gives a dev shell (`nix develop`, then the cargo commands above) and a package:
 
 ```sh
-nix run github:storytold/craft-launcher
+nix run github:pupska/artcraft-launcher-next
 ```
 
 On NixOS this uses the system's graphics drivers. On other distros, a Nix-built program can't load
 the host's GPU drivers, so the window may fail to open. Run it through
 [nixGL](https://github.com/nix-community/nixGL) instead (NVIDIA needs nixGL's matching NVIDIA
-variant), or use the AppImage, `.deb` or `.rpm` release:
+variant), or use the Flatpak release:
 
 ```sh
-nix run --impure github:nix-community/nixGL -- nix run github:storytold/craft-launcher
+nix run --impure github:nix-community/nixGL -- nix run github:pupska/artcraft-launcher-next
 ```
 
 ### Installing your own builds
@@ -251,12 +259,14 @@ releases (`0.4.0` builds as `0.4.1-dev.<commit time>`), which the launcher offer
 mirror, never GitHub. Only builds with the `local-mirror` feature read it; releases never have it. `cargo xtask local help` lists the options (`--only`, `--no-pull`, `--arch`, …).
 
 New contributors and AI agents: start with [`AGENTS.md`](AGENTS.md). Release packaging lives in
-[`packaging/`](packaging/) and [`.github/workflows/release.yml`](.github/workflows/release.yml).
+[`packaging/`](packaging/) and [`.github/workflows/release.yml`](.github/workflows/release.yml),
+which builds this fork's unsigned releases from the `release` branch (see "Releasing" in
+`AGENTS.md`).
 
 > [!IMPORTANT]
-> **Status:** ArtCraft Launcher is new and in early alpha. Expect rough edges, and please file
-> issues (include your OS, which app you were installing and the launcher's log file) or tell us on
-> [Discord](https://discord.gg/artcraft).
+> **Status:** this fork is new and in early alpha. Expect rough edges, and please file
+> [issues here](https://github.com/pupska/artcraft-launcher-next/issues) (include your OS, which
+> app you were installing and the launcher's log file).
 
 ## The Craft App Suite
 
@@ -288,32 +298,12 @@ stand on its own.
 
 <br>
 
-<p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
-
-<h3 align="center">Come make things with us</h3>
-
-<p align="center">
-  Our Discord is where artists of every kind hang out: people who paint, shoot, draw, cut film,
-  set type, and people still figuring out what they like to make. Share what you're working on,
-  ask for help, tell us what's broken, or tell us what you wish these tools could do.
-  Whatever your medium and however long you've been at it, you're welcome here.
-</p>
-
-<p align="center">
-  <a href="https://discord.gg/artcraft"><b>discord.gg/artcraft</b></a> ·
-  <a href="https://getartcraft.com/">getartcraft.com</a> ·
-  <a href="https://getartcraft.com/apps">The Craft App Suite</a> ·
-  <a href="https://github.com/storytold/craft-launcher">ArtCraft Launcher</a>
-</p>
-
----
-
 ## Thanks
 
-The community built launchers for the Craft App Suite before we did, and ArtCraft Launcher learned a
-lot from them. Thank you to their authors:
+The community built launchers for the Craft App Suite before upstream did, and ArtCraft Launcher
+learned a lot from them. Thank you to their authors, and to the ArtCraft team and the
+[ArtCraft Launcher contributors](https://github.com/storytold/craft-launcher/graphs/contributors)
+this fork is built on:
 
 | Project | Author | What we learned from it |
 |---|---|---|
@@ -332,8 +322,10 @@ lot from them. Thank you to their authors:
 
 ## License and credits
 
-ArtCraft Launcher is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
-Copyright (c) 2026 ArtCraft Team and the ArtCraft Launcher contributors. Required notices are in [NOTICE](NOTICE).
+This fork is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
+option, like the [upstream ArtCraft Launcher](https://github.com/storytold/craft-launcher) it is
+based on. Copyright (c) 2026 ArtCraft Team and the ArtCraft Launcher contributors. Required notices
+are in [NOTICE](NOTICE).
 
 Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
 with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).
@@ -349,6 +341,5 @@ part of this repository and ArtCraft Launcher, under [`docs/brand/LICENSE-brand.
 Forks and modified versions must remove them.
 
 <p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
-  <sub>Made by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
+  <sub>Based on <a href="https://github.com/storytold/craft-launcher">ArtCraft Launcher</a> by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
 </p>
